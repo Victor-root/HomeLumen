@@ -53,25 +53,23 @@ dessin est incorrect : les tracés vectoriels (logo, icônes, roue de couleur)
 disparaissent. Ce n'est pas un défaut de HomeLumen, mais il vaut mieux le
 savoir.
 
-Lancée directement avec `cargo run` ou depuis le binaire compilé, l'icône de
-la fenêtre n'apparaît pas forcément dans la barre des tâches : la plupart des
-bureaux (GNOME, Cinnamon, la plupart des dérivés d'Ubuntu, donc de Zorin OS)
-associent l'icône d'une fenêtre en cours d'exécution à un fichier `.desktop`
-installé, pas à la fenêtre elle-même. Pour l'installer :
+Lancée directement avec `cargo run` ou depuis le binaire compilé, sans passer
+par un gestionnaire de paquets, HomeLumen n'a encore aucune entrée dans le
+menu des applications : la plupart des bureaux (GNOME, Cinnamon, la plupart
+des dérivés d'Ubuntu, donc de Zorin OS) affichent l'icône d'une fenêtre dans
+la barre des tâches en la faisant correspondre à cette entrée-là, pas
+directement à ce que la fenêtre affiche elle-même. C'est le prix de ne pas
+(encore) être un paquet installable : les applications qu'on installe
+normalement le font pour vous. En attendant, une seule commande, depuis la
+racine du dépôt :
 
 ```
-mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/256x256/apps
-cp assets/icon/icon.png ~/.local/share/icons/hicolor/256x256/apps/homelumen.png
-sed "s|__EXEC__|$(pwd)/target/release/homelumen|" \
-  packaging/linux/homelumen.desktop.in > ~/.local/share/applications/homelumen.desktop
-update-desktop-database ~/.local/share/applications 2>/dev/null
-gtk-update-icon-cache ~/.local/share/icons/hicolor 2>/dev/null
+./install.sh
 ```
 
-À lancer depuis la racine du dépôt, une fois `cargo build --release` fait :
-la commande reprend le chemin de l'exécutable tel qu'il se trouve à cet
-endroit précis. HomeLumen apparaît alors dans le menu des applications avec
-son icône, et la barre des tâches la reprend une fois lancée depuis là.
+Elle compile si besoin, et enregistre HomeLumen auprès du bureau. Après ça,
+il apparaît dans le menu des applications avec son icône, et la barre des
+tâches la reprend.
 
 ## Architecture
 
