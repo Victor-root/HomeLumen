@@ -4,7 +4,7 @@ use std::net::IpAddr;
 
 use homelumen_core::{Color as LightColor, Command, DeviceId};
 use homelumen_engine::{self as engine, Handle, LightSnapshot, Request};
-use iced::{Element, Subscription, Task};
+use iced::{Element, Size, Subscription, Task};
 
 use crate::design::{Mode, Skin};
 use crate::screen;
@@ -19,6 +19,7 @@ pub struct App {
     scanning: bool,
     notice: Option<String>,
     address: Option<String>,
+    window_size: Size,
 }
 
 impl Default for App {
@@ -32,6 +33,7 @@ impl Default for App {
             scanning: false,
             notice: None,
             address: None,
+            window_size: Size::ZERO,
         }
     }
 }
@@ -67,6 +69,8 @@ pub enum Message {
     AddressSubmit,
     /// Put the last message away.
     Dismiss,
+    /// The window changed size.
+    WindowSized(Size),
 }
 
 impl App {
@@ -84,16 +88,28 @@ impl App {
     }
 
     /// The window title.
+    ///
+    /// Carries the window's own logical size, in the same unit
+    /// `window::Settings.size` expects: read it here after resizing to a
+    /// size worth keeping, and that is exactly the value to hardcode back.
     pub fn title(&self) -> String {
-        match self.open_light() {
+        let name = match self.open_light() {
             Some(light) => format!("{} · HomeLumen", light.descriptor.name),
             None => "HomeLumen".to_owned(),
-        }
+        };
+
+        let width = self.window_size.width.round() as i32;
+        let height = self.window_size.height.round() as i32;
+        format!("{name} · {width} × {height}")
     }
 
-    /// The engine runs for as long as the window does.
+    /// The engine runs for as long as the window does; window-size events
+    /// keep the title's live readout accurate.
     pub fn subscription(&self) -> Subscription<Message> {
-        Subscription::run(engine::run).map(Message::Engine)
+        Subscription::batch([
+            Subscription::run(engine::run).map(Message::Engine),
+            window_size_events().map(Message::WindowSized),
+        ])
     }
 
     /// Takes in one thing that happened.
@@ -179,6 +195,7 @@ impl App {
             Message::AddressSubmit => self.reach(),
 
             Message::Dismiss => self.notice = None,
+            Message::WindowSized(size) => self.window_size = size,
         }
 
         Task::none()
@@ -269,4 +286,15 @@ impl App {
             }
         }
     }
+}
+
+/// The window's logical size, whenever it opens or gets resized.
+fn window_size_events() -> Subscription<Size> {
+    iced::event::listen_with(|event, _status, _window| match event {
+        iced::Event::Window(iced::window::Event::Opened { size, .. }) => {
+            Some(size)
+        }
+        iced::Event::Window(iced::window::Event::Resized(size)) => Some(size),
+        _ => None,
+    })
 }
