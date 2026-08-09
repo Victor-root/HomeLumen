@@ -1,27 +1,22 @@
-//! The HomeLumen mark: an open halo, warm where the light starts and cool where
-//! it fades, with the point of emission left as a solid dot.
-
-use std::f32::consts::{PI, TAU};
+//! The HomeLumen mark: a house with its bulb lit, drawn with the same glass
+//! sphere every light on screen uses.
 
 use iced::mouse;
-use iced::widget::canvas::path::Arc;
 use iced::widget::canvas::{
     self, Canvas, Frame, Geometry, Path, Stroke, Style,
 };
 use iced::{
-    Color, Element, Length, Point, Radians, Rectangle, Renderer, Theme, Vector,
+    Color, Element, Length, Point, Rectangle, Renderer, Size, Theme, Vector,
 };
 
-/// The gap in the halo, as a fraction of a full turn.
-const OPENING: f32 = 0.18;
-
-/// Where the halo starts, measured from the top and turning clockwise.
-const START: f32 = 0.10;
+/// The roofline: five points tracing the house from eave to eave, closed
+/// along the floor. Fractions of the mark's own side, not the skin: the
+/// mark reads the same on ink and on paper, so its colours never come from
+/// there either.
+const ROOF: [(f32, f32); 5] =
+    [(0.12, 0.58), (0.50, 0.18), (0.88, 0.58), (0.88, 0.96), (0.12, 0.96)];
 
 /// The brand mark.
-///
-/// Its colours come from the light itself rather than from the skin, so the
-/// halo reads the same on ink and on paper.
 pub struct Mark;
 
 impl<Message> canvas::Program<Message> for Mark {
@@ -36,51 +31,73 @@ impl<Message> canvas::Program<Message> for Mark {
         _cursor: mouse::Cursor,
     ) -> Vec<Geometry> {
         let mut frame = Frame::new(renderer, bounds.size());
-        let center = frame.center();
         let side = bounds.width.min(bounds.height);
-        let radius = side / 2.0 - side * 0.14;
-        let stroke = side * 0.13;
+        let origin = frame.center() - Vector::new(side / 2.0, side / 2.0);
+        let at = |x: f32, y: f32| origin + Vector::new(x * side, y * side);
 
-        let from = TAU * START - PI / 2.0;
-        let to = from + TAU * (1.0 - OPENING);
+        let frame_tone = Color::from_rgb(0.580, 0.529, 0.463);
 
-        let halo = Path::new(|path| {
-            path.arc(Arc {
-                center,
-                radius,
-                start_angle: Radians(from),
-                end_angle: Radians(to),
-            });
+        let house = Path::new(|path| {
+            path.move_to(at(ROOF[0].0, ROOF[0].1));
+            for (x, y) in &ROOF[1..] {
+                path.line_to(at(*x, *y));
+            }
+            path.close();
         });
 
-        let warm = Color::from_rgb(1.0, 0.541, 0.169);
-        let cool = Color::from_rgb(0.561, 0.714, 1.0);
-
         frame.stroke(
-            &halo,
+            &house,
             Stroke {
-                style: Style::Gradient(
-                    canvas::gradient::Linear::new(
-                        center + Vector::new(-radius, radius),
-                        center + Vector::new(radius, -radius),
-                    )
-                    .add_stop(0.0, warm)
-                    .add_stop(0.52, Color::from_rgb(1.0, 0.769, 0.420))
-                    .add_stop(1.0, cool)
-                    .into(),
-                ),
-                width: stroke,
+                style: Style::Solid(frame_tone),
+                width: side * 0.06,
                 line_cap: canvas::LineCap::Round,
+                line_join: canvas::LineJoin::Round,
                 ..Stroke::default()
             },
         );
 
-        let head = Point::new(
-            center.x + radius * from.cos(),
-            center.y + radius * from.sin(),
+        // The bulb: the same glass-over-a-socket sphere every light on
+        // screen is drawn from, just sized to fill the house rather than
+        // sit beside a name.
+        let glass = at(0.50, 0.66);
+        let radius = side * 0.22;
+
+        let base_size = Size::new(side * 0.18, side * 0.10);
+        frame.fill(
+            &Path::rounded_rectangle(
+                glass + Vector::new(-base_size.width / 2.0, radius * 0.62),
+                base_size,
+                (base_size.height * 0.32).into(),
+            ),
+            frame_tone,
         );
 
-        frame.fill(&Path::circle(head, stroke * 0.62), warm);
+        frame.fill(
+            &Path::circle(glass, radius),
+            canvas::gradient::Linear::new(
+                Point::new(glass.x, glass.y - radius),
+                Point::new(glass.x, glass.y + radius),
+            )
+            .add_stop(0.0, Color::from_rgb(1.0, 0.859, 0.624))
+            .add_stop(1.0, Color::from_rgb(0.949, 0.651, 0.247)),
+        );
+
+        frame.stroke(
+            &Path::circle(glass, radius),
+            Stroke {
+                style: Style::Solid(Color::from_rgb(0.804, 0.502, 0.180)),
+                width: side * 0.008,
+                ..Stroke::default()
+            },
+        );
+
+        frame.fill(
+            &Path::circle(
+                glass + Vector::new(-radius * 0.33, -radius * 0.38),
+                radius * 0.26,
+            ),
+            Color { a: 0.35, ..Color::WHITE },
+        );
 
         vec![frame.into_geometry()]
     }

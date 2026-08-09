@@ -126,7 +126,12 @@ Tout ce que la main touche est dessiné par HomeLumen : les tuiles, l'interrupte
 la capsule de luminosité, la roue de couleur, la bande de blanc, le logo et les
 icônes. Aucun composant n'a son apparence d'origine, et il n'y a ni police
 d'icônes ni fichier d'image : les tracés sont des vecteurs calculés, et l'icône
-de la fenêtre est rastérisée au démarrage.
+de la fenêtre est rastérisée au démarrage. La seule exception est
+`crates/homelumen-app/assets/icon.ico`, un export figé de ce même dessin :
+Windows en a besoin pour afficher l'icône dans l'Explorateur et le menu
+contextuel de la barre des tâches, deux endroits qui lisent l'exécutable
+directement plutôt que la fenêtre en cours d'exécution. Si le dessin de
+`src/icon.rs` change, ce fichier doit être régénéré à partir des mêmes pixels.
 
 Le vocabulaire visuel tient dans `crates/homelumen-app/src/design/` : les
 couleurs des deux thèmes, l'échelle typographique, le rythme des espacements et
