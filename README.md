@@ -1,28 +1,62 @@
+<div align="center">
+
+[![Licence](https://img.shields.io/github/license/Victor-root/HomeLumen?style=for-the-badge&logo=gnu&logoColor=white&label=licence&color=blue)](LICENSE)
+[![Dernière mise à jour](https://img.shields.io/github/last-commit/Victor-root/HomeLumen/main?style=for-the-badge&logo=git&logoColor=white&label=maj)](https://github.com/Victor-root/HomeLumen/commits/main)
+[![Rust](https://img.shields.io/badge/rust-2024-CE422B?style=for-the-badge&logo=rust&logoColor=white)](Cargo.toml)
+
+[![Windows](https://img.shields.io/badge/windows-11-0078D6?style=for-the-badge&logo=windows11&logoColor=white)](#sous-windows)
+[![Linux](https://img.shields.io/badge/linux-compatible-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#sous-linux)
+[![Langues](https://img.shields.io/badge/langues-EN%2FFR-F2A63F?style=for-the-badge)](crates/homelumen-app/src/design/text.rs)
+[![Pilote](https://img.shields.io/badge/pilote-TP--Link%20Kasa-F2A63F?style=for-the-badge)](crates/homelumen-kasa)
+
+</div>
+
+<div align="center">
+<img src="assets/icon/icon.png" width="120" alt="Logo HomeLumen">
+
 # HomeLumen
 
-Une application de bureau pour piloter ses éclairages connectés, écrite
-entièrement en Rust. Windows 11 et Linux.
+**Une application de bureau pour piloter ses éclairages connectés, écrite
+entièrement en Rust.**
 
-![Écran d'accueil](docs/accueil.png)
+Windows 11 et Linux · Deux écrans, pas plus
 
-![Contrôle d'une lumière](docs/lumiere.png)
-
-Deux écrans, pas plus : la liste des lumières, puis une lumière. Les contrôles
-affichés dépendent uniquement de ce que l'appareil sait faire.
+</div>
 
 ---
 
-## Où en est le projet
+## 📸 Captures d'écran
 
-| | |
-|---|---|
-| Pilote | TP-Link Kasa en réseau local (LB / KL, dont LB120 et LB130) |
-| Découverte | diffusion UDP sur toutes les interfaces, plus ajout par adresse |
-| Contrôles | marche/arrêt, luminosité, couleur, blanc chaud/froid |
-| Thèmes | sombre et clair |
-| Langue | anglais et français, détectée depuis la langue du système |
+<p align="center">
+  <img src="docs/accueil.png" width="48%" alt="Écran d'accueil, la liste des lumières">
+  <img src="docs/lumiere.png" width="48%" alt="Le contrôle d'une lumière">
+</p>
 
-## Compiler et lancer
+<p align="center"><sub>La liste des lumières, puis une lumière. Les contrôles affichés dépendent uniquement de ce que l'appareil sait faire.</sub></p>
+
+---
+
+## ✨ Fonctionnalités
+
+- 🔌 **Pilote TP-Link Kasa** en réseau local (séries LB et KL, dont les LB120 et LB130)
+- 📡 **Découverte automatique** par diffusion UDP sur toutes les interfaces, plus ajout manuel par adresse
+- 🎛️ **Contrôles complets** : marche/arrêt, luminosité, couleur, blanc chaud/froid
+- 🌗 **Thème sombre et clair**
+- 🌍 **Anglais et français**, la langue du système est détectée automatiquement
+- 🖌️ **Tout est dessiné à la main** : aucune police d'icônes, aucune image, chaque tracé est un vecteur calculé
+
+---
+
+## 🔒 Vie privée
+
+Tout reste sur le réseau local : pas de compte, pas de service en ligne, pas
+de télémétrie. Seule la route locale (`Lan`) est implémentée aujourd'hui, donc
+rien ne sort vers un service du fabricant ou un relais externe pour le moment
+(voir *Une lumière, plusieurs chemins* plus bas).
+
+---
+
+## 🚀 Compiler et lancer
 
 Il faut [Rust](https://rustup.rs) (édition 2024, `rustc` 1.85 ou plus récent).
 Sous Windows, les outils de compilation C++ de Visual Studio sont nécessaires,
@@ -34,15 +68,16 @@ cargo run --release
 
 L'exécutable se retrouve dans `target/release/`.
 
-### Sous Windows
+### 🪟 Sous Windows
 
-La découverte automatique repose sur une diffusion UDP. Le pare-feu Windows
-bloque souvent la réponse des ampoules tant qu'aucune règle n'existe pour
-l'application. Deux solutions :
-
-- autoriser HomeLumen dans le pare-feu quand Windows le propose ;
-- ou utiliser le bouton **+** de l'en-tête pour saisir l'adresse locale de
-  l'ampoule, ce qui emprunte exactement le même pilote.
+> [!TIP]
+> La découverte automatique repose sur une diffusion UDP. Le pare-feu Windows
+> bloque souvent la réponse des ampoules tant qu'aucune règle n'existe pour
+> l'application. Deux solutions :
+>
+> - autoriser HomeLumen dans le pare-feu quand Windows le propose ;
+> - ou utiliser le bouton **+** de l'en-tête pour saisir l'adresse locale de
+>   l'ampoule, ce qui emprunte exactement le même pilote.
 
 `cargo build --release` donne un exécutable autonome (police et icône sont
 embarquées dedans), qui marche tel quel sans rien installer. Pour un vrai
@@ -76,14 +111,15 @@ cargo packager --release --target x86_64-pc-windows-gnu
 Le nom, l'éditeur, l'icône et les langues de l'installateur se règlent dans
 `crates/homelumen-app/Cargo.toml`, sous `[package.metadata.packager]`.
 
-### Sous Linux
+### 🐧 Sous Linux
 
-HomeLumen dessine avec `wgpu` et a donc besoin d'un pilote graphique
-fonctionnel (Vulkan, ou OpenGL via Mesa). Sur une machine sans accélération du
-tout, iced bascule sur son moteur logiciel, dont le découpage des zones de
-dessin est incorrect : les tracés vectoriels (logo, icônes, roue de couleur)
-disparaissent. Ce n'est pas un défaut de HomeLumen, mais il vaut mieux le
-savoir.
+> [!NOTE]
+> HomeLumen dessine avec `wgpu` et a donc besoin d'un pilote graphique
+> fonctionnel (Vulkan, ou OpenGL via Mesa). Sur une machine sans accélération
+> du tout, iced bascule sur son moteur logiciel, dont le découpage des zones
+> de dessin est incorrect : les tracés vectoriels (logo, icônes, roue de
+> couleur) disparaissent. Ce n'est pas un défaut de HomeLumen, mais il vaut
+> mieux le savoir.
 
 Lancée directement avec `cargo run` ou depuis le binaire compilé, sans passer
 par un gestionnaire de paquets, HomeLumen n'a encore aucune entrée dans le
@@ -103,7 +139,9 @@ Elle compile si besoin, et enregistre HomeLumen auprès du bureau. Après ça,
 il apparaît dans le menu des applications avec son icône, et la barre des
 tâches la reprend.
 
-## Architecture
+---
+
+## 🧩 Architecture
 
 Quatre crates, du plus général au plus concret.
 
@@ -159,7 +197,9 @@ prévues par le modèle, pas simulées.
 - il relit l'état des lumières toutes les cinq secondes, pour voir aussi ce qui
   a été changé ailleurs.
 
-## Ajouter un fabricant
+---
+
+## 🔧 Ajouter un fabricant
 
 Un pilote implémente deux traits de `homelumen-core` :
 
@@ -170,7 +210,9 @@ Un pilote implémente deux traits de `homelumen-core` :
 Il suffit ensuite de l'ajouter à la liste dans `homelumen-engine/src/engine.rs`,
 fonction `drivers()`. Rien d'autre ne bouge : ni le moteur, ni l'interface.
 
-## L'interface
+---
+
+## 🎨 L'interface
 
 Tout ce que la main touche est dessiné par HomeLumen : les tuiles, l'interrupteur,
 la capsule de luminosité, la roue de couleur, la bande de blanc, le logo et les
@@ -199,7 +241,18 @@ interrupteur et sa luminosité. La bande de blanc affiche les vraies couleurs de
 corps noir entre les deux extrêmes de l'appareil, plutôt qu'un dégradé de gris
 avec un nombre à côté.
 
-## Licence
+---
+
+## 🙏 Construit avec
+
+- **[iced](https://github.com/iced-rs/iced)** : le framework Rust qui dessine
+  toute l'interface, sans rien emprunter au système.
+- **[Inter](https://rsms.me/inter/)** : la police, sous licence SIL Open Font
+  License 1.1.
+
+---
+
+## 📄 Licence
 
 GPL-3.0-or-later. La police Inter est distribuée sous SIL Open Font License 1.1
 (voir `assets/fonts/Inter-LICENSE.txt`).
