@@ -6,7 +6,7 @@ use homelumen_core::{Color as LightColor, Command, DeviceId};
 use homelumen_engine::{self as engine, Handle, LightSnapshot, Request};
 use iced::{Element, Size, Subscription, Task};
 
-use crate::design::{Mode, Skin};
+use crate::design::{Mode, Preference, Skin};
 use crate::screen;
 
 /// The whole state of the interface.
@@ -15,7 +15,8 @@ pub struct App {
     lights: Vec<LightSnapshot>,
     focus: Option<DeviceId>,
     panel: usize,
-    mode: Mode,
+    preference: Preference,
+    system: Mode,
     scanning: bool,
     notice: Option<String>,
     address: Option<String>,
@@ -29,7 +30,10 @@ impl Default for App {
             lights: Vec::new(),
             focus: None,
             panel: 0,
-            mode: Mode::Night,
+            preference: Preference::default(),
+            // Until the desktop answers, HomeLumen shows the skin it is
+            // designed around rather than guessing at the other one.
+            system: Mode::Night,
             scanning: false,
             notice: None,
             address: None,
@@ -57,8 +61,10 @@ pub enum Message {
     White(DeviceId, f32),
     /// Show another panel of the open light.
     Panel(usize),
-    /// Swap the skin.
-    FlipSkin,
+    /// Step to the next skin preference.
+    CycleSkin,
+    /// The desktop says it is set to this skin.
+    SystemSkin(Mode),
     /// Look for lights again.
     Sweep,
     /// Open or close the address field.
@@ -74,14 +80,28 @@ pub enum Message {
 }
 
 impl App {
+    /// Starts the interface, asking the desktop which skin it is set to.
+    ///
+    /// The answer also arrives on every later change through
+    /// [`App::subscription`]; this first read is what keeps the automatic
+    /// preference from having to wait for the desktop to change its mind
+    /// before it knows anything at all.
+    pub fn boot() -> (Self, Task<Message>) {
+        (
+            Self::default(),
+            iced::system::theme()
+                .map(|mode| Message::SystemSkin(system_skin(mode))),
+        )
+    }
+
     /// The skin currently in use.
     pub fn skin(&self) -> Skin {
-        Skin::of(self.mode)
+        Skin::of(self.preference.resolve(self.system))
     }
 
     /// The theme iced needs for the few things HomeLumen does not paint itself.
     pub fn theme(&self) -> iced::Theme {
-        match self.mode {
+        match self.preference.resolve(self.system) {
             Mode::Night => iced::Theme::Dark,
             Mode::Day => iced::Theme::Light,
         }
@@ -104,11 +124,14 @@ impl App {
     }
 
     /// The engine runs for as long as the window does; window-size events
-    /// keep the title's live readout accurate.
+    /// keep the title's live readout accurate, and the desktop says so here
+    /// whenever it switches between its light and dark hours.
     pub fn subscription(&self) -> Subscription<Message> {
         Subscription::batch([
             Subscription::run(engine::run).map(Message::Engine),
             window_size_events().map(Message::WindowSized),
+            iced::system::theme_changes()
+                .map(|mode| Message::SystemSkin(system_skin(mode))),
         ])
     }
 
@@ -177,7 +200,8 @@ impl App {
             }
 
             Message::Panel(index) => self.panel = index,
-            Message::FlipSkin => self.mode = self.mode.flipped(),
+            Message::CycleSkin => self.preference = self.preference.next(),
+            Message::SystemSkin(mode) => self.system = mode,
 
             Message::Sweep => {
                 if let Some(engine) = &self.engine {
@@ -210,6 +234,7 @@ impl App {
             None => screen::home::view(
                 &self.lights,
                 skin,
+                self.preference,
                 self.scanning,
                 self.address.as_deref(),
                 self.notice.as_deref(),
@@ -285,6 +310,17 @@ impl App {
                 ));
             }
         }
+    }
+}
+
+/// The skin the desktop itself is set to, as far as it will say.
+///
+/// A desktop that expresses no preference at all gets HomeLumen's own
+/// reference skin rather than an arbitrary one of the two.
+fn system_skin(mode: iced::theme::Mode) -> Mode {
+    match mode {
+        iced::theme::Mode::Light => Mode::Day,
+        iced::theme::Mode::Dark | iced::theme::Mode::None => Mode::Night,
     }
 }
 

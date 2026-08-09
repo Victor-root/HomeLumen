@@ -20,6 +20,9 @@ use crate::design::{Skin, tone};
 /// Layers the halo is built from.
 const HALO: usize = 34;
 
+/// How much wider the halo swells at the top of a breath.
+const SWELL: f32 = 0.02;
+
 /// A light, drawn as a bulb.
 pub struct Bulb {
     glow: Color,
@@ -82,8 +85,7 @@ impl<Message> canvas::Program<Message> for Bulb {
             _ => 0.0,
         };
 
-        let breath = 1.0 + 0.02 * (phase * 0.85).sin() * self.intensity;
-        let reach = (side / 2.0 - 2.0) * breath;
+        let breath = 1.0 + SWELL * (phase * 0.85).sin() * self.intensity;
 
         // `frame.center()`, not `bounds.center()`: the frame's own coordinate
         // space starts at (0, 0) regardless of where the canvas sits in the
@@ -94,6 +96,13 @@ impl<Message> canvas::Program<Message> for Bulb {
         let center = frame.center();
         let glass = Point::new(center.x, center.y - side * 0.07);
         let radius = side * 0.30;
+
+        // The frame clips whatever leaves it, and the glass sitting above
+        // centre makes the top edge the near one, so that is what the halo
+        // has to answer to. Dividing by the swell leaves the breath its room
+        // as well: without it the widest moment of every breath would meet
+        // the edge and flatten into a hard line across the glow.
+        let reach = (glass.y - 1.0) / (1.0 + SWELL) * breath;
 
         for layer in 0..HALO {
             let step = layer as f32 / (HALO - 1) as f32;

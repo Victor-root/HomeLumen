@@ -19,12 +19,40 @@ pub enum Mode {
     Day,
 }
 
-impl Mode {
-    /// The other one.
-    pub fn flipped(self) -> Self {
+/// Which skin the user asked for.
+///
+/// Not the same question as [`Mode`]: "whatever the desktop is set to" is a
+/// perfectly good answer here, and only becomes one skin or the other once
+/// the system has been asked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Preference {
+    /// Follow the desktop.
+    #[default]
+    Auto,
+    /// Warm paper, whatever the desktop says.
+    Day,
+    /// Deep ink, whatever the desktop says.
+    Night,
+}
+
+impl Preference {
+    /// The next one round, which is what the header button steps through:
+    /// the desktop's choice first, then each skin pinned in turn.
+    pub fn next(self) -> Self {
         match self {
-            Mode::Night => Mode::Day,
-            Mode::Day => Mode::Night,
+            Self::Auto => Self::Day,
+            Self::Day => Self::Night,
+            Self::Night => Self::Auto,
+        }
+    }
+
+    /// The skin to actually paint, given what the desktop currently says.
+    /// `system` is only ever consulted for [`Preference::Auto`].
+    pub fn resolve(self, system: Mode) -> Mode {
+        match self {
+            Self::Auto => system,
+            Self::Day => Mode::Day,
+            Self::Night => Mode::Night,
         }
     }
 }

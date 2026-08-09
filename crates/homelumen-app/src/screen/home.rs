@@ -8,7 +8,7 @@ use iced::widget::{
 use iced::{Center, Element, Fill, Length};
 
 use crate::app::Message;
-use crate::design::{Mode, Skin, space as gap, tone, typo};
+use crate::design::{Preference, Skin, space as gap, tone, typo};
 use crate::style::{self, label};
 use crate::widget::glyph::{Glyph, glyph};
 use crate::widget::mark::mark;
@@ -21,6 +21,7 @@ const COLUMN: f32 = 372.0;
 pub fn view<'a>(
     lights: &'a [LightSnapshot],
     skin: Skin,
+    preference: Preference,
     scanning: bool,
     address: Option<&'a str>,
     notice: Option<&'a str>,
@@ -34,7 +35,7 @@ pub fn view<'a>(
     };
 
     let mut page = Column::new().spacing(gap::STEP);
-    page = page.push(header(skin, scanning));
+    page = page.push(header(skin, preference, scanning));
 
     if let Some(typed) = address {
         page = page.push(inset(address_panel(typed, skin)));
@@ -65,16 +66,24 @@ fn inset<'a>(
     container(content).padding([0.0, gap::MARGIN])
 }
 
-fn header_controls<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
+fn header_controls<'a>(
+    skin: Skin,
+    preference: Preference,
+    scanning: bool,
+) -> Element<'a, Message> {
     row![
         round(Glyph::Sweep { busy: scanning }, Message::Sweep, skin),
         round(Glyph::Plus, Message::AddressToggle, skin),
+        // The mark is the preference itself, not the one a press would move
+        // to: with three of them in a ring, "where you are" is the only
+        // thing a single mark can say without the user counting presses.
         round(
-            match skin.mode {
-                Mode::Night => Glyph::Sun,
-                Mode::Day => Glyph::Moon,
+            match preference {
+                Preference::Auto => Glyph::Auto,
+                Preference::Day => Glyph::Sun,
+                Preference::Night => Glyph::Moon,
             },
-            Message::FlipSkin,
+            Message::CycleSkin,
             skin,
         ),
     ]
@@ -86,7 +95,11 @@ fn header_controls<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
 /// header's controls, so only the mark itself is shown.
 const HEADER_BREAKPOINT: f32 = 300.0;
 
-fn header<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
+fn header<'a>(
+    skin: Skin,
+    preference: Preference,
+    scanning: bool,
+) -> Element<'a, Message> {
     inset(
         responsive(move |available| {
             let wordmark: Element<'_, Message> = if available.width
@@ -103,10 +116,14 @@ fn header<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
                 .into()
             };
 
-            row![wordmark, space::horizontal(), header_controls(skin, scanning)]
-                .align_y(Center)
-                .width(Fill)
-                .into()
+            row![
+                wordmark,
+                space::horizontal(),
+                header_controls(skin, preference, scanning)
+            ]
+            .align_y(Center)
+            .width(Fill)
+            .into()
         })
         .height(Length::Shrink),
     )

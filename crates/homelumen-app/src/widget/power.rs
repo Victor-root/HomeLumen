@@ -13,7 +13,7 @@ use iced::time::Instant;
 use iced::touch;
 use iced::{
     Background, Border, Color, Element, Event, Length, Point, Radians,
-    Rectangle, Renderer, Shadow, Size, Theme, Vector, gradient, window,
+    Rectangle, Renderer, Size, Theme, gradient, window,
 };
 
 use crate::design::{Skin, motion, round, tone, typo};
@@ -25,14 +25,20 @@ pub const HEIGHT: f32 = 86.0;
 
 const PAD: f32 = 26.0;
 
-// The switch, drawn Material Design 3 style: the track outlines when off and
-// fills when on, and the thumb itself grows as it crosses over, rather than
-// a fixed dot that only slides.
-const SWITCH_WIDTH: f32 = 58.0;
+// The switch, to the Material Design 3 metrics exactly: a 52x32 track that
+// is outlined when off and filled when on, and a handle that is 16 across
+// when off and 24 when on, so it grows as it crosses rather than being a
+// fixed dot that only slides.
+const SWITCH_WIDTH: f32 = 52.0;
 const SWITCH_HEIGHT: f32 = 32.0;
+const TRACK_OUTLINE: f32 = 2.0;
 const THUMB_OFF: f32 = 16.0;
-const THUMB_ON: f32 = 26.0;
-const THUMB_GAP: f32 = 4.0;
+const THUMB_ON: f32 = 24.0;
+
+/// Room left around the selected handle. The unselected one keeps the very
+/// same centre and simply shrinks inside it, which is what puts the small
+/// handle a wider margin from the track's edge than the large one.
+const THUMB_INSET: f32 = (SWITCH_HEIGHT - THUMB_ON) / 2.0;
 
 /// The on/off control.
 pub struct Power<Message> {
@@ -275,16 +281,23 @@ where
         let track_off = skin.edge;
         let outline_off = tone::mix(skin.edge, skin.ink_faint, 0.6);
 
+        // Material Design 3 outlines the track only while the switch is off:
+        // once it fills, the fill is the whole shape and a ring around it
+        // would read as a second, competing edge. So the outline is not
+        // recoloured on the way across, it is retired. Its width has to go
+        // with its colour, not just the colour: a border keeps its share of
+        // the quad whether or not anything is painted in it, so leaving the
+        // width behind would hollow the lit pill out by two pixels a side.
         let track_fill = tone::mix(track_off, tone::fade(scrim, 0.32), lit);
-        let outline = tone::mix(outline_off, tone::fade(scrim, 0.65), lit);
+        let retreat = 1.0 - lit;
 
         renderer.fill_quad(
             renderer::Quad {
                 bounds: switch,
                 border: Border {
                     radius: (SWITCH_HEIGHT / 2.0).into(),
-                    width: 2.0,
-                    color: outline,
+                    width: TRACK_OUTLINE * retreat,
+                    color: tone::fade(outline_off, retreat),
                 },
                 ..renderer::Quad::default()
             },
@@ -292,11 +305,15 @@ where
         );
 
         // Off sits small and to the left; on grows and moves to the right,
-        // rather than a fixed dot that only slides.
+        // rather than a fixed dot that only slides. Both ends are the same
+        // distance from their own edge of the track, so the travel is what
+        // Material Design 3 calls it: the width less a handle's worth of
+        // inset at each end.
         let thumb = THUMB_OFF + (THUMB_ON - THUMB_OFF) * lit;
-        let start = switch.x + THUMB_GAP + THUMB_OFF / 2.0;
-        let end = switch.x + SWITCH_WIDTH - THUMB_GAP - THUMB_ON / 2.0;
-        let center = Point::new(start + (end - start) * lit, switch.center_y());
+        let rest = THUMB_INSET + THUMB_ON / 2.0;
+        let travel = SWITCH_WIDTH - 2.0 * rest;
+        let center =
+            Point::new(switch.x + rest + travel * lit, switch.center_y());
 
         renderer.fill_quad(
             renderer::Quad {
@@ -309,11 +326,6 @@ where
                 border: Border {
                     radius: (thumb / 2.0).into(),
                     ..Border::default()
-                },
-                shadow: Shadow {
-                    color: tone::fade(skin.shadow, 0.3),
-                    offset: Vector::new(0.0, 1.0),
-                    blur_radius: 3.0,
                 },
                 ..renderer::Quad::default()
             },

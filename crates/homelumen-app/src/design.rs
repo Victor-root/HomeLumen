@@ -5,4 +5,4 @@ pub mod skin;
 pub mod tone;
 pub mod typo;
 
-pub use skin::{Mode, Skin, round, space};
+pub use skin::{Mode, Preference, Skin, round, space};

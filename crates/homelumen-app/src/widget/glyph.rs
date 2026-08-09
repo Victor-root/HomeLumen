@@ -22,10 +22,12 @@ pub enum Glyph {
     Plus,
     /// Go back.
     Back,
-    /// Switch to the dark skin.
+    /// The dark skin.
     Moon,
-    /// Switch to the light skin.
+    /// The light skin.
     Sun,
+    /// Whichever skin the desktop is set to.
+    Auto,
     /// Look for lights. Turns while a sweep is running.
     Sweep {
         /// Whether a sweep is running right now.
@@ -163,6 +165,28 @@ impl<Message> canvas::Program<Message> for Drawing {
                         line,
                     );
                 }
+            }
+
+            Glyph::Auto => {
+                // A disc half outlined and half filled: the two skins in one
+                // mark, which is the shape a desktop uses for exactly this.
+                let radius = side * 0.30;
+
+                frame.fill(
+                    &Path::new(|path| {
+                        path.move_to(Point::new(center.x, center.y - radius));
+                        path.arc(Arc {
+                            center,
+                            radius,
+                            start_angle: Radians(-FRAC_PI_2),
+                            end_angle: Radians(FRAC_PI_2),
+                        });
+                        path.close();
+                    }),
+                    self.color,
+                );
+
+                frame.stroke(&Path::circle(center, radius), line);
             }
 
             Glyph::Sweep { busy } => {

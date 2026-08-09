@@ -120,10 +120,25 @@ impl Registry {
     }
 
     /// Replaces the known state of a device and marks it reachable.
+    ///
+    /// Whatever is still held back for this light is folded back in on top.
+    /// The answer that just landed describes the command before those, so
+    /// letting it stand on its own would walk a value the user has already
+    /// moved past back to where it was, once per round trip, for as long as
+    /// a drag keeps producing intents.
     pub fn settle(&mut self, id: &DeviceId, state: LightState) {
-        if let Some(device) = self.devices.get_mut(id) {
-            device.state = state;
-            device.online = true;
+        let Some(device) = self.devices.get_mut(id) else {
+            return;
+        };
+
+        device.state = state;
+        device.online = true;
+
+        if let Some(held) = device.pending.take() {
+            for command in &held {
+                device.expect(command);
+            }
+            device.pending = Some(held);
         }
     }
 
@@ -135,14 +150,7 @@ impl Registry {
         };
 
         for command in commands {
-            match command {
-                Command::Power(on) => device.state.power = *on,
-                Command::Brightness(level) => {
-                    device.state.brightness = Some(*level)
-                }
-                Command::Color(color) => device.state.color = Some(*color),
-                Command::Effect(effect) => device.state.effect = effect.clone(),
-            }
+            device.expect(command);
         }
     }
 
@@ -217,6 +225,16 @@ impl Device {
         self.routes.sort_by_key(|route| route.transport.preference());
     }
 
+    /// Folds one intent into the known state, as if the light had obeyed.
+    fn expect(&mut self, command: &Command) {
+        match command {
+            Command::Power(on) => self.state.power = *on,
+            Command::Brightness(level) => self.state.brightness = Some(*level),
+            Command::Color(color) => self.state.color = Some(*color),
+            Command::Effect(effect) => self.state.effect = effect.clone(),
+        }
+    }
+
     fn snapshot(&self) -> LightSnapshot {
         let active = self
             .routes
@@ -241,4 +259,122 @@ struct Route {
     transport: Transport,
     address: String,
     healthy: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use async_trait::async_trait;
+    use homelumen_core::{
+        BrightnessRange, Capabilities, Result, Transport as Kind,
+    };
+
+    use super::*;
+
+    /// A route the registry can file but never has to travel: nothing here
+    /// reads a device back or sends it anything.
+    struct Nowhere;
+
+    #[async_trait]
+    impl Endpoint for Nowhere {
+        fn transport(&self) -> Kind {
+            Kind::Lan
+        }
+
+        fn address(&self) -> String {
+            "127.0.0.1".to_owned()
+        }
+
+        async fn state(&self) -> Result<LightState> {
+            unreachable!("the registry never talks to a device")
+        }
+
+        async fn apply(&self, _commands: &[Command]) -> Result<LightState> {
+            unreachable!("the registry never talks to a device")
+        }
+    }
+
+    fn lit(brightness: u8) -> LightState {
+        LightState {
+            power: true,
+            brightness: Some(brightness),
+            color: None,
+            effect: None,
+        }
+    }
+
+    fn one_light() -> (Registry, DeviceId) {
+        let mut registry = Registry::default();
+
+        let id = registry.absorb(Discovered {
+            descriptor: DeviceDescriptor {
+                id: DeviceId::new("test", "salon"),
+                name: "Salon".to_owned(),
+                vendor: "Essai".to_owned(),
+                model: "LB130".to_owned(),
+                capabilities: Capabilities {
+                    power: true,
+                    brightness: Some(BrightnessRange::PERCENT),
+                    ..Capabilities::default()
+                },
+            },
+            state: lit(10),
+            endpoint: Arc::new(Nowhere),
+        });
+
+        (registry, id)
+    }
+
+    fn brightness(registry: &Registry, id: &DeviceId) -> Option<u8> {
+        registry.snapshot(id).unwrap().state.brightness
+    }
+
+    #[test]
+    fn a_late_answer_does_not_undo_a_newer_intent() {
+        let (mut registry, id) = one_light();
+
+        // The pointer keeps moving while the first command is still out on
+        // the wire, so the second one is held back behind it.
+        registry.anticipate(&id, &[Command::Brightness(62)]);
+        registry.anticipate(&id, &[Command::Brightness(70)]);
+        registry.defer(&id, vec![Command::Brightness(70)]);
+
+        // The light answers the only command it was actually given.
+        registry.settle(&id, lit(62));
+
+        assert_eq!(
+            brightness(&registry, &id),
+            Some(70),
+            "an answer about 62 must not walk 70 back while 70 is queued"
+        );
+    }
+
+    #[test]
+    fn an_answer_stands_once_nothing_is_held_back() {
+        let (mut registry, id) = one_light();
+
+        registry.anticipate(&id, &[Command::Brightness(62)]);
+        registry.settle(&id, lit(41));
+
+        assert_eq!(
+            brightness(&registry, &id),
+            Some(41),
+            "with no intent outstanding the light has the last word"
+        );
+    }
+
+    #[test]
+    fn a_held_intent_only_shields_what_it_speaks_for() {
+        let (mut registry, id) = one_light();
+
+        registry.anticipate(&id, &[Command::Brightness(70)]);
+        registry.defer(&id, vec![Command::Brightness(70)]);
+
+        // Someone flicked the wall switch: brightness is spoken for, power
+        // is not, so only power takes the light's word for it.
+        registry.settle(&id, LightState { power: false, ..lit(62) });
+
+        let state = registry.snapshot(&id).unwrap().state;
+        assert!(!state.power);
+        assert_eq!(state.brightness, Some(70));
+    }
 }

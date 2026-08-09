@@ -21,7 +21,7 @@ use design::typo;
 const COMPACT_SIZE: Size = Size::new(385.0, 573.0);
 
 fn main() -> iced::Result {
-    iced::application(App::default, App::update, App::view)
+    iced::application(App::boot, App::update, App::view)
         .title(App::title)
         .subscription(App::subscription)
         .theme(App::theme)

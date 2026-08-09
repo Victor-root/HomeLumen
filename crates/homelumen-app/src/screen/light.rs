@@ -75,18 +75,14 @@ pub fn view(
                     .into(),
             };
 
-        container(
-            scrollable(
-                container(body)
-                    .padding([density.gap, density.margin])
-                    .width(Fill),
-            )
-            .height(Fill)
-            .style(style::scroller(skin)),
+        // One vertical padding, not two: the body's own is already what
+        // keeps the page off the top and bottom of the window, and a second
+        // one wrapped around the scrollable only ever added to it.
+        scrollable(
+            container(body).padding([density.gap, density.margin]).width(Fill),
         )
-        .padding([density.room, 0.0])
-        .width(Fill)
         .height(Fill)
+        .style(style::scroller(skin))
         .into()
     });
 
@@ -194,8 +190,8 @@ fn advanced<'a>(
     skin: Skin,
     density: &Density,
 ) -> Option<Element<'a, Message>> {
-    let Capabilities { color, color_temperature, .. } =
-        light.descriptor.capabilities;
+    let capabilities = &light.descriptor.capabilities;
+    let Capabilities { color, color_temperature, .. } = *capabilities;
 
     let device = light.descriptor.id.clone();
     let mut labels = Vec::new();
@@ -266,7 +262,7 @@ fn advanced<'a>(
     let panels = panels.into_iter().map(|panel| center(panel).into()).collect();
 
     let active = panel.min(labels.len() - 1);
-    let strip = Pages::new(panels, active, density.panel);
+    let strip = Pages::new(panels, active, density.panel_height(capabilities));
 
     if labels.len() == 1 {
         return Some(strip.into());
@@ -309,9 +305,6 @@ mod gap {
     /// the text itself, not on the room around it. Sized for the model
     /// line, now the widest thing there since it carries the address too.
     pub const HERO_TEXT_MIN: f32 = 230.0;
-
-    pub const PANEL_REF: f32 = 420.0;
-    pub const PANEL_FLOOR: f32 = 140.0;
 
     pub const POWER_REF: f32 = crate::widget::power::HEIGHT;
     pub const POWER_FLOOR: f32 = 52.0;
@@ -356,7 +349,6 @@ struct Density {
     orb: f32,
     swatch: f32,
     aside: f32,
-    panel: f32,
     power: f32,
     level: f32,
     warmth: f32,
@@ -379,7 +371,6 @@ impl Density {
             orb: lerp(gap::ORB_FLOOR, gap::ORB_REF),
             swatch: lerp(gap::SWATCH_FLOOR, gap::SWATCH_REF),
             aside: lerp(gap::ASIDE_FLOOR, gap::ASIDE_REF),
-            panel: lerp(gap::PANEL_FLOOR, gap::PANEL_REF),
             power: lerp(gap::POWER_FLOOR, gap::POWER_REF),
             level: lerp(gap::LEVEL_FLOOR, gap::LEVEL_REF),
             warmth: lerp(gap::WARMTH_FLOOR, gap::WARMTH_REF),
@@ -400,7 +391,10 @@ impl Density {
     /// Every scalable size is the same fraction `t` between its floor and
     /// its reference, so the total space the screen needs is an affine
     /// function of `t`: evaluating it at the two ends and inverting is
-    /// exact, not an approximation.
+    /// exact, not an approximation. The one exception is the tallest-panel
+    /// term, which is a maximum of affine pieces; a maximum bends only
+    /// upward, so reading it off the line between its ends can ask for a
+    /// little more room than it truly needs, and never for less.
     fn solve(
         available: Size,
         narrow: bool,
@@ -446,19 +440,46 @@ impl Density {
         height
     }
 
+    /// Height of the tallest advanced panel, which is exactly what the strip
+    /// holding them all has to be. A strip any taller than its tallest page
+    /// is a band of dead space above and below whatever is on screen, and it
+    /// stays there however hard the rest of the layout tightens.
+    fn panel_height(&self, capabilities: &Capabilities) -> f32 {
+        let field = capabilities.color.then_some(self.swatch);
+
+        // The white panel is a reading, the band itself and the two end
+        // labels, a room apart. 1.3 is iced's default relative line height,
+        // which neither of those labels overrides.
+        let white = capabilities.color_temperature.is_some().then_some(
+            self.name_text * 1.3
+                + self.room
+                + self.warmth
+                + self.room
+                + typo::MICRO * 1.3,
+        );
+
+        field.into_iter().chain(white).fold(0.0, f32::max)
+    }
+
     fn panels_height(&self, capabilities: &Capabilities) -> f32 {
-        match (capabilities.color, capabilities.color_temperature.is_some()) {
-            (true, true) => self.segment + self.room + self.panel,
-            (true, false) | (false, true) => self.panel,
-            (false, false) => 0.0,
+        let panel = self.panel_height(capabilities);
+
+        if panel <= 0.0 {
+            return 0.0;
+        }
+
+        if capabilities.color && capabilities.color_temperature.is_some() {
+            self.segment + self.room + panel
+        } else {
+            panel
         }
     }
 
     /// Total height `responsive` needs to have been given for the page to
-    /// fit, laid out the way `narrow` says. Every padding involved,
-    /// including the page's own top and bottom breathing room, answers to
-    /// density now: a compact window earns back that room rather than
-    /// holding a fixed margin no matter how little space is left.
+    /// fit, laid out the way `narrow` says. The page's own top and bottom
+    /// breathing room is counted in and answers to density like everything
+    /// else: a compact window earns that room back rather than holding a
+    /// fixed margin no matter how little space is left.
     fn needed_height(&self, narrow: bool, capabilities: &Capabilities) -> f32 {
         let controls = self.controls_height(capabilities);
         let panels = self.panels_height(capabilities);
@@ -471,7 +492,7 @@ impl Density {
             controls.max(panels)
         };
 
-        2.0 * self.gap + 2.0 * self.room + content
+        2.0 * self.gap + content
     }
 
     /// Total width the layout would need, stacked or side by side.
