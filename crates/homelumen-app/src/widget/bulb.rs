@@ -1,0 +1,202 @@
+//! The light bulb at the top of a light's screen.
+//!
+//! It is the light itself, not just a picture of one: its colour, its reach
+//! and its slow breathing all come from the state of the device. The shape
+//! reads as a bulb rather than a plain sphere, but nothing about it is
+//! static artwork; the glow around it is what says a light is on, so the
+//! glass itself stays free of decoration.
+
+use iced::mouse;
+use iced::time::{Duration, Instant};
+use iced::widget::canvas::{
+    self, Canvas, Frame, Geometry, Path, Stroke, Style,
+};
+use iced::{
+    Color, Element, Length, Point, Rectangle, Renderer, Size, Theme, Vector,
+};
+
+use crate::design::{Skin, tone};
+
+/// Layers the halo is built from.
+const HALO: usize = 34;
+
+/// A light, drawn as a bulb.
+pub struct Bulb {
+    glow: Color,
+    intensity: f32,
+    skin: Skin,
+}
+
+impl Bulb {
+    /// Builds a bulb for a light putting out `intensity` of `glow`.
+    pub fn new(glow: Color, intensity: f32, skin: Skin) -> Self {
+        Self { glow, intensity: intensity.clamp(0.0, 1.0), skin }
+    }
+}
+
+/// Kept by the runtime between frames, so the bulb can breathe.
+#[derive(Default)]
+pub struct State {
+    origin: Option<Instant>,
+    now: Option<Instant>,
+}
+
+impl<Message> canvas::Program<Message> for Bulb {
+    type State = State;
+
+    fn update(
+        &self,
+        state: &mut Self::State,
+        event: &canvas::Event,
+        _bounds: Rectangle,
+        _cursor: mouse::Cursor,
+    ) -> Option<canvas::Action<Message>> {
+        let canvas::Event::Window(iced::window::Event::RedrawRequested(now)) =
+            event
+        else {
+            return None;
+        };
+
+        state.origin.get_or_insert(*now);
+        state.now = Some(*now);
+
+        // A lit bulb breathes. A dark one has no reason to cost a frame.
+        (self.intensity > 0.0).then(|| {
+            canvas::Action::request_redraw_at(*now + Duration::from_millis(33))
+        })
+    }
+
+    fn draw(
+        &self,
+        state: &Self::State,
+        renderer: &Renderer,
+        _theme: &Theme,
+        bounds: Rectangle,
+        _cursor: mouse::Cursor,
+    ) -> Vec<Geometry> {
+        let mut frame = Frame::new(renderer, bounds.size());
+        let side = bounds.width.min(bounds.height);
+
+        let phase = match (state.origin, state.now) {
+            (Some(origin), Some(now)) => (now - origin).as_secs_f32(),
+            _ => 0.0,
+        };
+
+        let breath = 1.0 + 0.02 * (phase * 0.85).sin() * self.intensity;
+        let reach = (side / 2.0 - 2.0) * breath;
+
+        // `frame.center()`, not `bounds.center()`: the frame's own coordinate
+        // space starts at (0, 0) regardless of where the canvas sits in the
+        // window, so drawing at the widget's window-relative centre would
+        // land outside the frame and clip away entirely. The glass sits a
+        // touch above that centre, leaving the base its own room below
+        // rather than splitting the difference with it.
+        let center = frame.center();
+        let glass = Point::new(center.x, center.y - side * 0.07);
+        let radius = side * 0.30;
+
+        for layer in 0..HALO {
+            let step = layer as f32 / (HALO - 1) as f32;
+            let halo_radius = reach - (reach - radius) * step;
+            let opacity = (0.020 + 0.042 * step.powf(1.8)) * self.intensity;
+
+            frame.fill(
+                &Path::circle(glass, halo_radius),
+                tone::fade(self.glow, opacity),
+            );
+        }
+
+        self.draw_base(&mut frame, glass, radius);
+        self.draw_glass(&mut frame, glass, radius);
+
+        vec![frame.into_geometry()]
+    }
+}
+
+impl Bulb {
+    /// The socket: drawn first and mostly tucked behind the glass, so only
+    /// the sliver below it reads as a base to screw the bulb into.
+    fn draw_base(&self, frame: &mut Frame, glass: Point, radius: f32) {
+        let width = radius * 1.15;
+        let height = radius * 0.85;
+        let top = glass.y + radius * 0.62;
+
+        // `edge` toward `ink_faint`, not `surface` toward `edge`: in the day
+        // skin surface and edge are both near white, so a resting metal tone
+        // built from them reads as no metal at all against the page. Leaning
+        // on ink_faint keeps the socket visible as its own shape in both
+        // skins, the same fix the switch's track needed for the same reason.
+        let metal = tone::mix(
+            tone::mix(self.skin.edge, self.skin.ink_faint, 0.5),
+            self.glow,
+            self.intensity * 0.12,
+        );
+
+        frame.fill(
+            &Path::rounded_rectangle(
+                Point::new(glass.x - width / 2.0, top),
+                Size::new(width, height),
+                (height * 0.32).into(),
+            ),
+            metal,
+        );
+    }
+
+    /// The glass itself: the same warm, gradient-lit sphere the orb always
+    /// was, just no longer the only shape on screen.
+    fn draw_glass(&self, frame: &mut Frame, glass: Point, radius: f32) {
+        let skin = self.skin;
+        // Same reasoning as the socket's metal tone above: built from
+        // `edge`/`ink_faint` rather than `surface_lift`/`edge`, so the glass
+        // stays visible against the page in the day skin instead of nearly
+        // matching it.
+        let base = tone::mix(skin.edge, skin.ink_faint, 0.3);
+        let face = tone::mix(base, self.glow, self.intensity);
+
+        frame.fill(
+            &Path::circle(glass, radius),
+            canvas::gradient::Linear::new(
+                Point::new(glass.x, glass.y - radius),
+                Point::new(glass.x, glass.y + radius),
+            )
+            .add_stop(
+                0.0,
+                tone::mix(face, Color::WHITE, 0.20 + 0.18 * self.intensity),
+            )
+            .add_stop(1.0, tone::mix(face, skin.canvas, 0.18)),
+        );
+
+        frame.stroke(
+            &Path::circle(glass, radius),
+            Stroke {
+                style: Style::Solid(tone::mix(
+                    tone::mix(skin.edge, skin.ink_faint, 0.6),
+                    tone::fade(Color::WHITE, 0.35),
+                    self.intensity,
+                )),
+                width: 1.0,
+                ..Stroke::default()
+            },
+        );
+
+        // A single specular highlight is what turns a disc into a sphere.
+        frame.fill(
+            &Path::circle(
+                glass + Vector::new(-radius * 0.33, -radius * 0.38),
+                radius * 0.26,
+            ),
+            tone::fade(Color::WHITE, 0.10 + 0.14 * self.intensity),
+        );
+    }
+}
+
+/// Places a bulb of the given side length.
+pub fn bulb<'a, Message>(light: Bulb, side: f32) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    Canvas::new(light)
+        .width(Length::Fixed(side))
+        .height(Length::Fixed(side))
+        .into()
+}

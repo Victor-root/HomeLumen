@@ -265,9 +265,18 @@ where
             Color::WHITE
         };
 
-        let track_off = tone::mix(skin.canvas, skin.edge, 0.5);
+        // `skin.edge` alone, not a blend toward `skin.canvas`: in the day
+        // skin the row's own resting background is already close to white,
+        // and a blend that also leans toward canvas nearly matches it,
+        // which is the same washed-out-track problem as the coloured one
+        // above, just for the off state. The outline leans further still,
+        // toward `ink_faint`, so the track reads as outlined and not just
+        // filled a shade off from its surroundings.
+        let track_off = skin.edge;
+        let outline_off = tone::mix(skin.edge, skin.ink_faint, 0.6);
+
         let track_fill = tone::mix(track_off, tone::fade(scrim, 0.32), lit);
-        let outline = tone::mix(skin.edge, tone::fade(scrim, 0.65), lit);
+        let outline = tone::mix(outline_off, tone::fade(scrim, 0.65), lit);
 
         renderer.fill_quad(
             renderer::Quad {

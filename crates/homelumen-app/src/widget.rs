@@ -4,11 +4,11 @@
 //! appearance: a slider, a switch and a colour picker are the identity of the
 //! product as much as the palette is.
 
+pub mod bulb;
 pub mod field;
 pub mod glyph;
 pub mod level;
 pub mod mark;
-pub mod orb;
 pub mod pages;
 pub mod power;
 pub mod segmented;

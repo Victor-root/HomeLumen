@@ -46,24 +46,6 @@ pub fn card(skin: Skin) -> impl Fn(&Theme) -> container::Style {
     }
 }
 
-/// A small label pinned to a corner: a route, a count, a state.
-pub fn chip(skin: Skin) -> impl Fn(&Theme) -> container::Style {
-    move |_| container::Style {
-        background: Some(Background::Color(tone::mix(
-            skin.canvas,
-            skin.surface,
-            0.6,
-        ))),
-        border: Border {
-            radius: round::FULL.into(),
-            width: 1.0,
-            color: skin.edge_soft,
-        },
-        text_color: Some(skin.ink_soft),
-        ..container::Style::default()
-    }
-}
-
 /// A control that only shows itself when the pointer is near.
 pub fn quiet(skin: Skin) -> impl Fn(&Theme, button::Status) -> button::Style {
     move |_, status| {

@@ -23,10 +23,10 @@ use iced::{Center, Element, Fill, Length, Size};
 use crate::app::Message;
 use crate::design::{Skin, tone, typo};
 use crate::style::{self, label};
+use crate::widget::bulb::{Bulb, bulb};
 use crate::widget::field::{Field, field};
 use crate::widget::glyph::{Glyph, glyph};
 use crate::widget::level::Level;
-use crate::widget::orb::{Orb, orb};
 use crate::widget::pages::Pages;
 use crate::widget::power::Power;
 use crate::widget::segmented::Segmented;
@@ -75,20 +75,22 @@ pub fn view(
                     .into(),
             };
 
-        scrollable(
-            container(body).padding([density.gap, density.margin]).width(Fill),
+        container(
+            scrollable(
+                container(body)
+                    .padding([density.gap, density.margin])
+                    .width(Fill),
+            )
+            .height(Fill)
+            .style(style::scroller(skin)),
         )
+        .padding([density.room, 0.0])
+        .width(Fill)
         .height(Fill)
-        .style(style::scroller(skin))
         .into()
     });
 
-    container(page)
-        .padding([gap::ROOM_REF, 0.0])
-        .width(Fill)
-        .height(Fill)
-        .style(style::page(skin))
-        .into()
+    container(page).width(Fill).height(Fill).style(style::page(skin)).into()
 }
 
 /// The identity of the light and the two controls every light deserves.
@@ -113,8 +115,8 @@ fn controls<'a>(
         .style(style::quiet(skin))
         .on_press(Message::Back);
 
-    let identity = orb(
-        Orb::new(emission, tone::intensity(&light.state), skin),
+    let identity = bulb(
+        Bulb::new(emission, tone::intensity(&light.state), skin),
         density.orb,
     );
 
@@ -126,37 +128,29 @@ fn controls<'a>(
     )
     .line_height(typo::SNUG_LEADING);
 
-    let model = label(
-        format!("{} · {}", light.descriptor.model, light.descriptor.vendor),
-        density.model_text,
-        typo::REGULAR,
-        skin.ink_faint,
-    );
-
-    // Just the address, not `{transport} · {address}`: the chip now shares
-    // its line with the name instead of a whole row of its own, and a light
-    // named more than a few letters already leaves it little room.
-    let route = if light.online {
+    // Where the model line ends: the address, or why there isn't one. No
+    // separate chip for it any more, so a light's whole identity is one
+    // read instead of two things to glance between.
+    let status = if light.online {
         light.address.clone()
     } else {
         "Hors ligne".to_owned()
     };
 
-    let route_ink = if light.online { skin.ink_soft } else { skin.alarm };
-    let chip = container(label(route, typo::MICRO, typo::MEDIUM, route_ink))
-        .padding([7.0, 14.0])
-        .style(style::chip(skin));
-
-    // The chip rides on the name's own line rather than the row shared with
-    // the orb and the back button: the model line underneath is often the
-    // longest text on the whole screen, and it alone deserves the room
-    // those two leave behind.
-    let identity_line = row![name, space::horizontal(), chip].align_y(Center);
+    let model = label(
+        format!(
+            "{} · {} · {status}",
+            light.descriptor.model, light.descriptor.vendor
+        ),
+        density.model_text,
+        typo::REGULAR,
+        if light.online { skin.ink_faint } else { skin.alarm },
+    );
 
     let hero = row![
         back,
         identity,
-        column![identity_line, model].spacing(density.tight).width(Fill),
+        column![name, model].spacing(density.tight).width(Fill),
     ]
     .spacing(density.step)
     .align_y(Center);
@@ -312,8 +306,9 @@ mod gap {
 
     /// Least width the name and model column can read in without wrapping,
     /// in the wide layout's hero row. Not density-scaled: it is a floor on
-    /// the text itself, not on the room around it.
-    pub const HERO_TEXT_MIN: f32 = 150.0;
+    /// the text itself, not on the room around it. Sized for the model
+    /// line, now the widest thing there since it carries the address too.
+    pub const HERO_TEXT_MIN: f32 = 230.0;
 
     pub const PANEL_REF: f32 = 420.0;
     pub const PANEL_FLOOR: f32 = 140.0;
@@ -459,10 +454,11 @@ impl Density {
         }
     }
 
-    /// Total height the body would need inside the space `responsive` hands
-    /// it, laid out the way `narrow` says. The page's own padding sits
-    /// outside that space already, so only the padding the body adds for
-    /// itself counts here.
+    /// Total height `responsive` needs to have been given for the page to
+    /// fit, laid out the way `narrow` says. Every padding involved,
+    /// including the page's own top and bottom breathing room, answers to
+    /// density now: a compact window earns back that room rather than
+    /// holding a fixed margin no matter how little space is left.
     fn needed_height(&self, narrow: bool, capabilities: &Capabilities) -> f32 {
         let controls = self.controls_height(capabilities);
         let panels = self.panels_height(capabilities);
@@ -475,7 +471,7 @@ impl Density {
             controls.max(panels)
         };
 
-        2.0 * self.gap + content
+        2.0 * self.gap + 2.0 * self.room + content
     }
 
     /// Total width the layout would need, stacked or side by side.
