@@ -5,7 +5,9 @@
 
 use homelumen_core::{Capabilities, Color as LightColor};
 use homelumen_engine::LightSnapshot;
-use iced::widget::{Column, button, center, column, container, row, space};
+use iced::widget::{
+    Column, button, center, column, container, responsive, row, space,
+};
 use iced::{Center, Element, Fill, Length};
 
 use crate::app::Message;
@@ -23,7 +25,8 @@ use crate::widget::wheel::{Wheel, wheel};
 /// Side of the hero orb.
 const ORB: f32 = 204.0;
 
-/// Width of the column holding the advanced panels.
+/// Width of the column holding the advanced panels, when there is room to
+/// sit it next to the controls.
 const ASIDE: f32 = 404.0;
 
 /// Side of the colour disc.
@@ -35,34 +38,48 @@ const PANEL: f32 = 408.0;
 /// Widest the controls get when a light has no advanced panel at all.
 const SOLO: f32 = 560.0;
 
+/// Below this width the advanced panels no longer fit next to the controls,
+/// so the two stack instead of sitting side by side. HomeLumen's window can
+/// be shrunk well past this point, so the screen has to keep working there.
+const BREAKPOINT: f32 = 760.0;
+
 /// Draws the screen of one light.
 pub fn view(
     light: &LightSnapshot,
     panel: usize,
     skin: Skin,
 ) -> Element<'_, Message> {
-    let controls = controls(light, skin);
-
-    let body: Element<'_, Message> = match advanced(light, panel, skin) {
-        Some(panels) => row![
-            container(controls).width(Fill),
-            container(panels).width(Length::Fixed(ASIDE)),
-        ]
-        .spacing(gap::GAP)
-        .into(),
-        None => container(controls)
-            .max_width(SOLO)
-            .width(Fill)
-            .center_x(Fill)
-            .into(),
-    };
-
     let page = column![
         top(light, skin),
-        container(body)
-            .padding([gap::GAP, gap::MARGIN])
-            .center_y(Fill)
-            .width(Fill),
+        responsive(move |available| {
+            let narrow = available.width < BREAKPOINT;
+            let controls = controls(light, skin, narrow);
+
+            let body: Element<'_, Message> = match advanced(light, panel, skin)
+            {
+                Some(panels) if !narrow => row![
+                    container(controls).width(Fill),
+                    container(panels).width(Length::Fixed(ASIDE)),
+                ]
+                .spacing(gap::GAP)
+                .into(),
+                Some(panels) => column![controls, panels]
+                    .spacing(gap::GAP)
+                    .width(Fill)
+                    .into(),
+                None => container(controls)
+                    .max_width(SOLO)
+                    .width(Fill)
+                    .center_x(Fill)
+                    .into(),
+            };
+
+            container(body)
+                .padding([gap::GAP, gap::MARGIN])
+                .center_y(Fill)
+                .width(Fill)
+                .into()
+        }),
     ]
     .width(Fill)
     .height(Fill);
@@ -76,36 +93,50 @@ pub fn view(
 }
 
 /// The identity of the light and the two controls every light deserves.
-fn controls(light: &LightSnapshot, skin: Skin) -> Element<'_, Message> {
+///
+/// `narrow` stacks the orb above its name instead of beside it, once the
+/// window is too tight for the two to sit on the same line.
+fn controls(
+    light: &LightSnapshot,
+    skin: Skin,
+    narrow: bool,
+) -> Element<'_, Message> {
     let device = light.descriptor.id.clone();
     let capabilities = &light.descriptor.capabilities;
     let emission = tone::emission(&light.state);
 
-    let hero = row![
-        orb(Orb::new(emission, tone::intensity(&light.state), skin), ORB),
+    let identity =
+        orb(Orb::new(emission, tone::intensity(&light.state), skin), ORB);
+    let name =
+        label(&light.descriptor.name, typo::DISPLAY, typo::SEMIBOLD, skin.ink)
+            .line_height(typo::SNUG_LEADING);
+    let model = label(
+        format!("{} · {}", light.descriptor.model, light.descriptor.vendor),
+        typo::LABEL,
+        typo::REGULAR,
+        skin.ink_faint,
+    );
+
+    let hero: Element<'_, Message> = if narrow {
         column![
-            label(
-                &light.descriptor.name,
-                typo::DISPLAY,
-                typo::SEMIBOLD,
-                skin.ink
-            )
-            .line_height(typo::SNUG_LEADING),
-            label(
-                format!(
-                    "{} · {}",
-                    light.descriptor.model, light.descriptor.vendor
-                ),
-                typo::LABEL,
-                typo::REGULAR,
-                skin.ink_faint,
-            ),
+            identity,
+            column![
+                name.align_x(Center).width(Fill),
+                model.align_x(Center).width(Fill)
+            ]
+            .spacing(gap::TIGHT)
+            .width(Fill),
         ]
-        .spacing(gap::TIGHT)
-        .width(Fill),
-    ]
-    .spacing(gap::STEP)
-    .align_y(Center);
+        .spacing(gap::STEP)
+        .align_x(Center)
+        .width(Fill)
+        .into()
+    } else {
+        row![identity, column![name, model].spacing(gap::TIGHT).width(Fill)]
+            .spacing(gap::STEP)
+            .align_y(Center)
+            .into()
+    };
 
     let mut stack = Column::new().spacing(gap::GAP).width(Fill);
     stack = stack.push(hero);

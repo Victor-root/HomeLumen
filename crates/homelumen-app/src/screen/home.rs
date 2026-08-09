@@ -2,8 +2,8 @@
 
 use homelumen_engine::LightSnapshot;
 use iced::widget::{
-    Column, Grid, button, center, column, container, row, scrollable, space,
-    text_input,
+    Column, Grid, button, center, column, container, responsive, row,
+    scrollable, space, text_input,
 };
 use iced::{Center, Element, Fill, Length};
 
@@ -199,47 +199,78 @@ fn empty<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
     .into()
 }
 
-fn address_panel<'a>(typed: &'a str, skin: Skin) -> Element<'a, Message> {
-    let field = text_input("192.168.1.42", typed)
+/// Below this width the label, field and button no longer fit on one line,
+/// so the panel stacks them instead. HomeLumen's window can be shrunk well
+/// past this point, so the panel has to keep working there.
+const ADDRESS_BREAKPOINT: f32 = 560.0;
+
+fn address_copy<'a>(skin: Skin) -> Element<'a, Message> {
+    column![
+        label("Ajouter par adresse", typo::LEAD, typo::SEMIBOLD, skin.ink),
+        label(
+            "L'adresse locale de la lumière sur votre réseau.",
+            typo::LABEL,
+            typo::REGULAR,
+            skin.ink_faint,
+        ),
+    ]
+    .spacing(gap::TIGHT)
+    .width(Fill)
+    .into()
+}
+
+fn address_field<'a>(typed: &'a str, skin: Skin) -> Element<'a, Message> {
+    text_input("192.168.1.42", typed)
         .on_input(Message::AddressTyped)
         .on_submit(Message::AddressSubmit)
         .padding([13.0, 16.0])
         .size(typo::BODY)
         .font(typo::REGULAR)
-        .style(style::field(skin));
+        .width(Fill)
+        .style(style::field(skin))
+        .into()
+}
 
-    container(
-        row![
-            column![
-                label(
-                    "Ajouter par adresse",
-                    typo::LEAD,
-                    typo::SEMIBOLD,
-                    skin.ink
-                ),
-                label(
-                    "L'adresse locale de la lumière sur votre réseau.",
-                    typo::LABEL,
-                    typo::REGULAR,
-                    skin.ink_faint,
-                ),
+fn address_submit<'a>(skin: Skin, fill: bool) -> Element<'a, Message> {
+    let content =
+        label("Ajouter", typo::BODY, typo::MEDIUM, skin.ink_over_light)
+            .width(Fill)
+            .align_x(Center);
+
+    let mut submit = button(content)
+        .padding([13.0, 22.0])
+        .style(style::solid(skin))
+        .on_press(Message::AddressSubmit);
+
+    if fill {
+        submit = submit.width(Fill);
+    }
+
+    submit.into()
+}
+
+fn address_panel<'a>(typed: &'a str, skin: Skin) -> Element<'a, Message> {
+    container(responsive(move |available| {
+        if available.width >= ADDRESS_BREAKPOINT {
+            row![
+                address_copy(skin),
+                container(address_field(typed, skin))
+                    .width(Length::Fixed(220.0)),
+                address_submit(skin, false),
             ]
-            .spacing(gap::TIGHT)
-            .width(Fill),
-            container(field).width(Length::Fixed(220.0)),
-            button(label(
-                "Ajouter",
-                typo::BODY,
-                typo::MEDIUM,
-                skin.ink_over_light,
-            ))
-            .padding([13.0, 22.0])
-            .style(style::solid(skin))
-            .on_press(Message::AddressSubmit),
-        ]
-        .spacing(gap::STEP)
-        .align_y(Center),
-    )
+            .spacing(gap::STEP)
+            .align_y(Center)
+            .into()
+        } else {
+            column![
+                address_copy(skin),
+                address_field(typed, skin),
+                address_submit(skin, true),
+            ]
+            .spacing(gap::STEP)
+            .into()
+        }
+    }))
     .padding(gap::ROOM)
     .width(Fill)
     .style(style::card(skin))
