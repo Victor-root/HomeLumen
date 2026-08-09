@@ -46,19 +46,12 @@ const SOLO: f32 = 560.0;
 /// defined by this exact number so that moving the button never moves it.
 const HERO_TOP_RESERVE: f32 = 29.0;
 
-/// Fraction of the room reserved above the hero that the back button fills.
-/// A fraction of what is actually there, rather than a fixed size guessed
-/// at from one measurement, so the button reads as a real point of entry
-/// wherever that reserved room turns out to render.
-const BACK_FRACTION: f32 = 0.85;
-
-/// Gap kept between the back button and the hero below it: small and fixed,
-/// so growing the button pulls it close to the hero rather than leaving it
-/// centred with room to spare on every side.
-const BACK_GAP: f32 = 3.0;
-
-/// Distance from the window's own left edge to the back button.
-const BACK_LEFT: f32 = 5.0;
+/// Side of the back button, as a fraction of the bulb it sits beside:
+/// clamped so it stays a real, prominent size even next to the smallest
+/// bulb, without growing past a hand's size next to the largest one.
+const BACK_ORB_FRACTION: f32 = 0.45;
+const BACK_MIN: f32 = 32.0;
+const BACK_MAX: f32 = 72.0;
 
 /// Draws the screen of one light.
 pub fn view(
@@ -96,13 +89,14 @@ pub fn view(
         // `HERO_TOP_RESERVE`: the back button used to earn that offset by
         // sitting in its own row just above, but now floats over it as a
         // layer of its own, so repositioning the button never moves the
-        // hero underneath it. The button itself fills most of that same
-        // reserved room, pulled down against `BACK_GAP` so growing it
-        // brings it closer to the hero instead of just eating its own
-        // margin from the top.
+        // hero underneath it. The button itself centres on the bulb's own
+        // top-left corner, straddling it the way it was drawn: half in the
+        // empty corner of the window, half over the bulb it sits beside.
         let reserved = density.crown + HERO_TOP_RESERVE;
-        let back_size = reserved * BACK_FRACTION;
-        let back_top = reserved - back_size - BACK_GAP;
+        let back_size =
+            (density.orb * BACK_ORB_FRACTION).clamp(BACK_MIN, BACK_MAX);
+        let back_top = (reserved - back_size / 2.0).max(0.0);
+        let back_left = (density.margin - back_size / 2.0).max(0.0);
 
         let content = stack![
             container(body)
@@ -118,7 +112,7 @@ pub fn view(
                     top: back_top,
                     right: 0.0,
                     bottom: 0.0,
-                    left: BACK_LEFT,
+                    left: back_left,
                 })
                 .width(Fill)
                 .height(Fill),
