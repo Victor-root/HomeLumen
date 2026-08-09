@@ -51,7 +51,7 @@ const HERO_TOP_RESERVE: f32 = 29.0;
 /// at from one measurement, so the button reads as a real point of entry
 /// wherever that reserved room turns out to render, and always leaves a
 /// visible sliver of it free on both sides, top and bottom alike.
-const BACK_FRACTION: f32 = 0.72;
+const BACK_FRACTION: f32 = 0.88;
 
 /// Distance from the window's own left edge to the back button: fixed
 /// rather than centred on the hero's own left margin, since the button is
@@ -132,11 +132,11 @@ pub fn view(
 /// The way out: a button floating in its own corner of the screen, entirely
 /// apart from the hero's own layout, sized to `size`.
 fn back<'a>(skin: Skin, size: f32) -> Element<'a, Message> {
-    button(glyph(Glyph::Back, skin.ink_soft, size * 0.52))
+    button(glyph(Glyph::Back, skin.ink_soft, size * 0.5))
         .width(Length::Fixed(size))
         .height(Length::Fixed(size))
-        .padding(size * 0.24)
-        .style(style::quiet(skin))
+        .padding(size * 0.25)
+        .style(style::corner(skin))
         .on_press(Message::Back)
         .into()
 }

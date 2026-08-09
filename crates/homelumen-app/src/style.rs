@@ -46,6 +46,36 @@ pub fn card(skin: Skin) -> impl Fn(&Theme) -> container::Style {
     }
 }
 
+/// The one control that floats free of every surface: raised and shadowed
+/// like a card, at rest and not only on hover, so it reads as a real point
+/// of entry rather than a hairline waiting to be noticed.
+pub fn corner(skin: Skin) -> impl Fn(&Theme, button::Status) -> button::Style {
+    move |_, status| {
+        let awake =
+            matches!(status, button::Status::Hovered | button::Status::Pressed);
+
+        button::Style {
+            background: Some(Background::Color(if awake {
+                skin.surface_lift
+            } else {
+                skin.surface
+            })),
+            text_color: skin.ink_soft,
+            border: Border {
+                radius: round::FULL.into(),
+                width: 1.0,
+                color: skin.edge_soft,
+            },
+            shadow: Shadow {
+                color: tone::fade(skin.shadow, skin.depth() * 0.2),
+                offset: Vector::new(0.0, 3.0),
+                blur_radius: 12.0,
+            },
+            ..button::Style::default()
+        }
+    }
+}
+
 /// A control that only shows itself when the pointer is near.
 pub fn quiet(skin: Skin) -> impl Fn(&Theme, button::Status) -> button::Style {
     move |_, status| {
