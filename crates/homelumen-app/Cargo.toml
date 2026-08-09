@@ -25,7 +25,7 @@ winresource = "0.1.31"
 [package.metadata.packager]
 product-name = "Home Lumen"
 identifier = "io.github.victor-root.homelumen"
-publisher = "The HomeLumen contributors"
+publisher = "Victor-root"
 homepage = "https://github.com/Victor-root/HomeLumen"
 before-packaging-command = "cargo build --release"
 formats = ["nsis"]
