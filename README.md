@@ -47,24 +47,34 @@ l'application. Deux solutions :
 `cargo build --release` donne un exécutable autonome (police et icône sont
 embarquées dedans), qui marche tel quel sans rien installer. Pour un vrai
 installateur à la place (dossier dans Program Files, raccourcis menu Démarrer
-et bureau, désinstallation depuis Windows), `packaging/windows/build.sh`
-compile HomeLumen pour Windows et l'empaquette avec
-[NSIS](https://nsis.sourceforge.io/), le tout depuis Linux ou Windows :
-contrairement aux outils Windows habituels pour ça, NSIS tourne aussi bien
-sur les deux.
+et bureau, désinstallation depuis Windows), c'est le même outillage cargo qui
+s'en charge, pas une application séparée à ouvrir et où cliquer : une fois
 
-Sous Linux ou WSL (`sudo apt install mingw-w64 nsis`, puis
+```
+cargo install cargo-packager --locked
+```
+
+installé, il suffit de
+
+```
+cargo packager --release
+```
+
+cargo-packager télécharge lui-même NSIS au premier lancement, recompile
+HomeLumen et construit l'installateur en une seule commande. Il sort dans
+`target/release/homelumen_<version>_x64-setup.exe`.
+
+Pour construire ce même installateur depuis Linux ou WSL (utile pour le
+vérifier sans machine Windows sous la main), il faut en plus le compilateur
+croisé et NSIS en local (`sudo apt install mingw-w64 nsis`, puis
 `rustup target add x86_64-pc-windows-gnu` une fois) :
 
 ```
-packaging/windows/build.sh
+cargo packager --release --target x86_64-pc-windows-gnu
 ```
 
-Sous Windows, avec [NSIS](https://nsis.sourceforge.io/) installé : compiler
-en release, puis clic droit sur `packaging\windows\homelumen.nsi` → **Compile
-NSIS Script**.
-
-L'installateur sort dans `target/installer/HomeLumen-Setup.exe`.
+Le nom, l'éditeur, l'icône et les langues de l'installateur se règlent dans
+`crates/homelumen-app/Cargo.toml`, sous `[package.metadata.packager]`.
 
 ### Sous Linux
 
