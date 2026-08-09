@@ -47,13 +47,24 @@ l'application. Deux solutions :
 `cargo build --release` donne un exécutable autonome (police et icône sont
 embarquées dedans), qui marche tel quel sans rien installer. Pour un vrai
 installateur à la place (dossier dans Program Files, raccourcis menu Démarrer
-et bureau, désinstallation depuis Windows) :
+et bureau, désinstallation depuis Windows), `packaging/windows/build.sh`
+compile HomeLumen pour Windows et l'empaquette avec
+[NSIS](https://nsis.sourceforge.io/), le tout depuis Linux ou Windows :
+contrairement aux outils Windows habituels pour ça, NSIS tourne aussi bien
+sur les deux.
 
-1. installer [Inno Setup](https://jrsoftware.org/isdl.php), gratuit ;
-2. double-cliquer sur `packaging\windows\homelumen.iss` (il s'ouvre dans Inno
-   Setup) et cliquer sur **Build → Compile**.
+Sous Linux ou WSL (`sudo apt install mingw-w64 nsis`, puis
+`rustup target add x86_64-pc-windows-gnu` une fois) :
 
-L'installateur sort dans `target\installer\HomeLumen-Setup.exe`.
+```
+packaging/windows/build.sh
+```
+
+Sous Windows, avec [NSIS](https://nsis.sourceforge.io/) installé : compiler
+en release, puis clic droit sur `packaging\windows\homelumen.nsi` → **Compile
+NSIS Script**.
+
+L'installateur sort dans `target/installer/HomeLumen-Setup.exe`.
 
 ### Sous Linux
 
