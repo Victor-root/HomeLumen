@@ -78,19 +78,34 @@ pub fn view(
                     .into(),
             };
 
-        // One vertical padding, not two: the body's own is already what
-        // keeps the page off the top and bottom of the window, and a second
-        // one wrapped around the scrollable only ever added to it. Top and
-        // bottom differ on purpose: the back button above the hero is
-        // small and wants to sit close to the edge, while the bottom still
-        // answers to `gap`, the same room every other section gets.
-        scrollable(
+        // The back button sits in a column of its own, ahead of the body,
+        // rather than inside the body's own padding: `crown` around the
+        // whole column lands the button that close to the window's corner
+        // on both edges it's near, and the body then adds back only the
+        // difference between `crown` and `margin` on its own left, which is
+        // what keeps everything below the button exactly where it always
+        // was.
+        let content = column![
+            back(skin),
             container(body)
                 .padding(Padding {
-                    top: density.crown,
+                    top: 0.0,
                     right: density.margin,
                     bottom: density.gap,
-                    left: density.margin,
+                    left: density.margin - density.crown,
+                })
+                .width(Fill),
+        ]
+        .spacing(density.tight)
+        .width(Fill);
+
+        scrollable(
+            container(content)
+                .padding(Padding {
+                    top: density.crown,
+                    right: 0.0,
+                    bottom: 0.0,
+                    left: density.crown,
                 })
                 .width(Fill),
         )
@@ -102,12 +117,20 @@ pub fn view(
     container(page).width(Fill).height(Fill).style(style::page(skin)).into()
 }
 
+/// The way out: small, unstyled until the pointer actually finds it, and
+/// positioned on its own rather than sharing the hero row's indent, so it
+/// can sit closer to the window's own corner than the content it precedes.
+fn back<'a>(skin: Skin) -> Element<'a, Message> {
+    button(glyph(Glyph::Back, skin.ink_soft, 13.0))
+        .width(Length::Fixed(BACK))
+        .height(Length::Fixed(BACK))
+        .padding(6.5)
+        .style(style::ghost(skin))
+        .on_press(Message::Back)
+        .into()
+}
+
 /// The identity of the light and the two controls every light deserves.
-///
-/// The back button gets a slim row entirely to itself, above the hero,
-/// rather than riding along inside it: small and out of the way, so the
-/// hero row underneath answers only to the bulb and the name instead of
-/// splitting its width three ways.
 fn controls<'a>(
     light: &'a LightSnapshot,
     skin: Skin,
@@ -116,13 +139,6 @@ fn controls<'a>(
     let device = light.descriptor.id.clone();
     let capabilities = &light.descriptor.capabilities;
     let emission = tone::emission(&light.state);
-
-    let back = button(glyph(Glyph::Back, skin.ink_soft, 13.0))
-        .width(Length::Fixed(BACK))
-        .height(Length::Fixed(BACK))
-        .padding(6.5)
-        .style(style::ghost(skin))
-        .on_press(Message::Back);
 
     let identity = bulb(
         Bulb::new(emission, tone::intensity(&light.state), skin),
@@ -164,7 +180,7 @@ fn controls<'a>(
     .align_y(Center);
 
     let mut stack = Column::new().spacing(density.gap).width(Fill);
-    stack = stack.push(column![back, hero].spacing(density.tight).width(Fill));
+    stack = stack.push(hero);
 
     let mut knobs = Column::new().spacing(density.step).width(Fill);
 
@@ -334,12 +350,12 @@ mod gap {
     pub const GAP_REF: f32 = crate::design::space::GAP;
     pub const GAP_FLOOR: f32 = 10.0;
 
-    /// Top padding of the whole screen, apart from `GAP` (the bottom, and
-    /// the space between sections): the top only has to clear a small,
-    /// discreet back button, not a block of controls, so it earns a much
-    /// shorter reach before the header starts.
-    pub const CROWN_REF: f32 = 14.0;
-    pub const CROWN_FLOOR: f32 = 6.0;
+    /// Distance from the window's own corner to the back button, on both
+    /// the edges it's near, top and left alike: apart from `MARGIN` (what
+    /// everything else answers to) because a small, discreet button earns a
+    /// much shorter reach than a block of controls does.
+    pub const CROWN_REF: f32 = 10.0;
+    pub const CROWN_FLOOR: f32 = 4.0;
 
     pub const ROOM_REF: f32 = crate::design::space::ROOM;
     pub const ROOM_FLOOR: f32 = 10.0;
