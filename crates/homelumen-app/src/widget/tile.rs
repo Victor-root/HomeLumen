@@ -19,6 +19,7 @@ use iced::{
 
 use crate::design::{Skin, motion, round, tone, typo};
 use crate::paint::{self, Anchor};
+use crate::widget::bulb;
 
 /// Height of a tile. Wide enough to breathe, short enough to fit three rows.
 pub const HEIGHT: f32 = 152.0;
@@ -316,6 +317,11 @@ where
 }
 
 impl<Message> Tile<'_, Message> {
+    /// Drawn from the same colour maths as the bulb on the light's own
+    /// screen (see [`bulb::tones`]), so a room reads as the same lights
+    /// whichever screen is showing them. `radius` is picked so the dome's
+    /// diameter fills the same square `LAMP` always reserved for it, the
+    /// footprint every other measurement on the tile already assumes.
     fn draw_lamp(
         &self,
         renderer: &mut Renderer,
@@ -324,12 +330,14 @@ impl<Message> Tile<'_, Message> {
         presence: f32,
         level: f32,
     ) {
-        let skin = self.skin;
-        let radius = LAMP * (0.5 - 0.06 * (1.0 - presence));
-        let center = Point::new(card.x + PAD + LAMP / 2.0, spine(card));
+        let radius = LAMP / 2.0;
+        let side = radius / 0.30;
+        let center = Point::new(card.x + PAD + radius, spine(card));
+        let glass = Point::new(center.x, center.y - side * 0.07);
+
         let disc = Rectangle {
-            x: center.x - radius,
-            y: center.y - radius,
+            x: glass.x - radius,
+            y: glass.y - radius,
             width: radius * 2.0,
             height: radius * 2.0,
         };
@@ -343,10 +351,29 @@ impl<Message> Tile<'_, Message> {
             18.0 + 22.0 * level * presence,
         );
 
-        let face = tone::mix(
-            tone::mix(skin.surface_lift, skin.edge, 0.55),
-            emission,
-            presence,
+        let tones = bulb::tones(self.skin, emission, presence);
+
+        // The socket, drawn first and mostly tucked behind the glass, so
+        // only the sliver below it reads as a base to screw the bulb into.
+        let width = radius * 1.15;
+        let height = radius * 0.85;
+        let top = glass.y + radius * 0.62;
+
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: glass.x - width / 2.0,
+                    y: top,
+                    width,
+                    height,
+                },
+                border: Border {
+                    radius: (height * 0.32).into(),
+                    ..Border::default()
+                },
+                ..renderer::Quad::default()
+            },
+            Background::Color(tones.metal),
         );
 
         renderer.fill_quad(
@@ -355,18 +382,31 @@ impl<Message> Tile<'_, Message> {
                 border: Border {
                     radius: radius.into(),
                     width: 1.0,
-                    color: tone::mix(skin.edge, emission, presence * 0.8),
+                    color: tones.stroke,
                 },
                 ..renderer::Quad::default()
             },
             Background::Gradient(iced::Gradient::Linear(
                 gradient::Linear::new(Radians(PI))
-                    .add_stop(
-                        0.0,
-                        tone::mix(face, Color::WHITE, 0.16 * presence),
-                    )
-                    .add_stop(1.0, tone::mix(face, skin.canvas, 0.22)),
+                    .add_stop(0.0, tones.top)
+                    .add_stop(1.0, tones.bottom),
             )),
+        );
+
+        // A single specular highlight is what turns a disc into a sphere.
+        let dot = radius * 0.26;
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: glass.x - radius * 0.33 - dot,
+                    y: glass.y - radius * 0.38 - dot,
+                    width: dot * 2.0,
+                    height: dot * 2.0,
+                },
+                border: Border { radius: dot.into(), ..Border::default() },
+                ..renderer::Quad::default()
+            },
+            Background::Color(tones.highlight),
         );
     }
 

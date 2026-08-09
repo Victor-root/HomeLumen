@@ -114,8 +114,8 @@ impl App {
     /// size worth keeping, and that is exactly the value to hardcode back.
     pub fn title(&self) -> String {
         let name = match self.open_light() {
-            Some(light) => format!("{} · HomeLumen", light.descriptor.name),
-            None => "HomeLumen".to_owned(),
+            Some(light) => format!("{} · Home Lumen", light.descriptor.name),
+            None => "Home Lumen".to_owned(),
         };
 
         let width = self.window_size.width.round() as i32;

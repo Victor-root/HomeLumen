@@ -39,9 +39,10 @@ const BREAKPOINT: f32 = 760.0;
 /// Widest the controls get when a light has no advanced panel at all.
 const SOLO: f32 = 560.0;
 
-/// Side of the back button. Small and fixed: it rides along the hero row
-/// without ever needing to be the reason that row is tall.
-const BACK: f32 = 42.0;
+/// Side of the back button. Small and fixed, and its own row above the
+/// hero rather than sharing it: what the arrow needs to stay tappable, not
+/// what the bulb and the name would need to give up to make room for it.
+const BACK: f32 = 34.0;
 
 /// Draws the screen of one light.
 pub fn view(
@@ -91,10 +92,10 @@ pub fn view(
 
 /// The identity of the light and the two controls every light deserves.
 ///
-/// The back button and the route chip ride along on the same row as the
-/// orb rather than a slim strip of their own above it: a row that already
-/// has to be as tall as the orb has room to spare for both, and a strip
-/// that existed only to hold them was headroom spent on nothing.
+/// The back button gets a slim row entirely to itself, above the hero,
+/// rather than riding along inside it: small and out of the way, so the
+/// hero row underneath answers only to the bulb and the name instead of
+/// splitting its width three ways.
 fn controls<'a>(
     light: &'a LightSnapshot,
     skin: Skin,
@@ -104,10 +105,10 @@ fn controls<'a>(
     let capabilities = &light.descriptor.capabilities;
     let emission = tone::emission(&light.state);
 
-    let back = button(glyph(Glyph::Back, skin.ink_soft, 20.0))
+    let back = button(glyph(Glyph::Back, skin.ink_soft, 16.0))
         .width(Length::Fixed(BACK))
         .height(Length::Fixed(BACK))
-        .padding(11.0)
+        .padding(9.0)
         .style(style::quiet(skin))
         .on_press(Message::Back);
 
@@ -144,7 +145,6 @@ fn controls<'a>(
     );
 
     let hero = row![
-        back,
         identity,
         column![name, model].spacing(density.tight).width(Fill),
     ]
@@ -152,7 +152,7 @@ fn controls<'a>(
     .align_y(Center);
 
     let mut stack = Column::new().spacing(density.gap).width(Fill);
-    stack = stack.push(hero);
+    stack = stack.push(column![back, hero].spacing(density.tight).width(Fill));
 
     let mut knobs = Column::new().spacing(density.step).width(Fill);
 
@@ -169,10 +169,11 @@ fn controls<'a>(
     }
 
     if let Some(range) = capabilities.brightness {
-        let level = range.fraction(light.state.brightness.unwrap_or(range.max));
+        let reading = light.state.brightness.unwrap_or(range.max);
+        let level = range.fraction(reading);
 
         knobs = knobs.push(
-            Level::new(level, emission, skin, move |fraction| {
+            Level::new(level, reading, emission, skin, move |fraction| {
                 Message::Dim(device.clone(), fraction)
             })
             .enabled(light.state.power)
@@ -284,8 +285,8 @@ fn advanced<'a>(
 /// The reference (most spacious) and floor (most compact) size of everything
 /// on this screen that is allowed to shrink.
 mod gap {
-    pub const ORB_REF: f32 = 204.0;
-    pub const ORB_FLOOR: f32 = 60.0;
+    pub const ORB_REF: f32 = 160.0;
+    pub const ORB_FLOOR: f32 = 56.0;
 
     /// Height of the colour field: it fills whatever width it is given, so
     /// only its height answers to density.
@@ -301,9 +302,9 @@ mod gap {
     pub const FIELD_MIN_WIDTH: f32 = 200.0;
 
     /// Least width the name and model column can read in without wrapping,
-    /// in the wide layout's hero row. Not density-scaled: it is a floor on
-    /// the text itself, not on the room around it. Sized for the model
-    /// line, now the widest thing there since it carries the address too.
+    /// in the hero row. Not density-scaled: it is a floor on the text
+    /// itself, not on the room around it. Sized for the model line, the
+    /// widest thing there since it carries the address too.
     pub const HERO_TEXT_MIN: f32 = 230.0;
 
     pub const POWER_REF: f32 = crate::widget::power::HEIGHT;
@@ -427,7 +428,9 @@ impl Density {
     }
 
     fn controls_height(&self, capabilities: &Capabilities) -> f32 {
-        let mut height = self.hero_height();
+        // The back button's own slim row, then the hero: `BACK` is fixed
+        // rather than density-scaled, matching the button itself.
+        let mut height = BACK + self.tight + self.hero_height();
 
         if capabilities.power {
             height += self.gap + self.power;
@@ -497,19 +500,20 @@ impl Density {
 
     /// Total width the layout would need, stacked or side by side.
     ///
-    /// Narrow: only the colour field forces a minimum, everything else is
-    /// happy to fill whatever is left. Wide: the hero row now carries the
-    /// back button and the route chip alongside the orb and the name, so
-    /// the room the aside column claims has to be counted against it too,
-    /// or a window just past the breakpoint can ask for more than it has.
+    /// The back button sits above the hero now, not inside it, so only the
+    /// bulb and the name's own floor answer for the hero's width. Narrow:
+    /// that competes with the colour field's minimum, whichever asks for
+    /// more decides, since the two are stacked rather than side by side.
+    /// Wide: the aside column's width is counted against the hero too, or a
+    /// window just past the breakpoint can ask for more than it has.
     fn needed_width(&self, narrow: bool, capabilities: &Capabilities) -> f32 {
+        let hero = self.orb + self.step + gap::HERO_TEXT_MIN;
+
         if narrow {
             let field =
                 if capabilities.color { gap::FIELD_MIN_WIDTH } else { 0.0 };
-            return 2.0 * self.margin + field;
+            return 2.0 * self.margin + field.max(hero);
         }
-
-        let hero = BACK + 2.0 * self.step + self.orb + gap::HERO_TEXT_MIN;
 
         let has_aside =
             capabilities.color || capabilities.color_temperature.is_some();

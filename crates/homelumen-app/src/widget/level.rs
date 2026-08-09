@@ -30,6 +30,7 @@ const KNOB_INSET: f32 = 9.0;
 /// A brightness control.
 pub struct Level<'a, Message> {
     value: f32,
+    reading: u8,
     glow: Color,
     skin: Skin,
     enabled: bool,
@@ -38,15 +39,26 @@ pub struct Level<'a, Message> {
 }
 
 impl<'a, Message> Level<'a, Message> {
-    /// Builds a brightness control showing `value`, expressed as `0.0..=1.0`.
+    /// Builds a brightness control filled to `value` (`0.0..=1.0`, the
+    /// fraction of the device's own range) and printing `reading` as the
+    /// percentage.
+    ///
+    /// The two are not the same number to compute from one another: the
+    /// device's usable range can start above zero, so a fraction of it and
+    /// the plain reading a person would recognise (the same one the home
+    /// screen already shows) drift apart near the low end. Taking `reading`
+    /// as given, rather than deriving it from `value`, is what keeps this
+    /// control and the tile agreeing on what the light is actually at.
     pub fn new(
         value: f32,
+        reading: u8,
         glow: Color,
         skin: Skin,
         on_change: impl Fn(f32) -> Message + 'a,
     ) -> Self {
         Self {
             value: value.clamp(0.0, 1.0),
+            reading,
             glow,
             skin,
             enabled: true,
@@ -179,7 +191,7 @@ where
 
         // The reading, drawn twice: once in the ink that reads over the fill,
         // once in the ink that reads over the track, each clipped to its side.
-        let reading = format!("{} %", (self.value * 100.0).round() as i32);
+        let reading = format!("{} %", self.reading);
         let anchor = Point::new(bounds.x + PAD, bounds.center_y());
         let width = bounds.width - PAD * 2.0;
 

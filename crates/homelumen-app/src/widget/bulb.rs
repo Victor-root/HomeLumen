@@ -129,17 +129,7 @@ impl Bulb {
         let width = radius * 1.15;
         let height = radius * 0.85;
         let top = glass.y + radius * 0.62;
-
-        // `edge` toward `ink_faint`, not `surface` toward `edge`: in the day
-        // skin surface and edge are both near white, so a resting metal tone
-        // built from them reads as no metal at all against the page. Leaning
-        // on ink_faint keeps the socket visible as its own shape in both
-        // skins, the same fix the switch's track needed for the same reason.
-        let metal = tone::mix(
-            tone::mix(self.skin.edge, self.skin.ink_faint, 0.5),
-            self.glow,
-            self.intensity * 0.12,
-        );
+        let tones = tones(self.skin, self.glow, self.intensity);
 
         frame.fill(
             &Path::rounded_rectangle(
@@ -147,20 +137,14 @@ impl Bulb {
                 Size::new(width, height),
                 (height * 0.32).into(),
             ),
-            metal,
+            tones.metal,
         );
     }
 
     /// The glass itself: the same warm, gradient-lit sphere the orb always
     /// was, just no longer the only shape on screen.
     fn draw_glass(&self, frame: &mut Frame, glass: Point, radius: f32) {
-        let skin = self.skin;
-        // Same reasoning as the socket's metal tone above: built from
-        // `edge`/`ink_faint` rather than `surface_lift`/`edge`, so the glass
-        // stays visible against the page in the day skin instead of nearly
-        // matching it.
-        let base = tone::mix(skin.edge, skin.ink_faint, 0.3);
-        let face = tone::mix(base, self.glow, self.intensity);
+        let tones = tones(self.skin, self.glow, self.intensity);
 
         frame.fill(
             &Path::circle(glass, radius),
@@ -168,21 +152,14 @@ impl Bulb {
                 Point::new(glass.x, glass.y - radius),
                 Point::new(glass.x, glass.y + radius),
             )
-            .add_stop(
-                0.0,
-                tone::mix(face, Color::WHITE, 0.20 + 0.18 * self.intensity),
-            )
-            .add_stop(1.0, tone::mix(face, skin.canvas, 0.18)),
+            .add_stop(0.0, tones.top)
+            .add_stop(1.0, tones.bottom),
         );
 
         frame.stroke(
             &Path::circle(glass, radius),
             Stroke {
-                style: Style::Solid(tone::mix(
-                    tone::mix(skin.edge, skin.ink_faint, 0.6),
-                    tone::fade(Color::WHITE, 0.35),
-                    self.intensity,
-                )),
+                style: Style::Solid(tones.stroke),
                 width: 1.0,
                 ..Stroke::default()
             },
@@ -194,8 +171,59 @@ impl Bulb {
                 glass + Vector::new(-radius * 0.33, -radius * 0.38),
                 radius * 0.26,
             ),
-            tone::fade(Color::WHITE, 0.10 + 0.14 * self.intensity),
+            tones.highlight,
         );
+    }
+}
+
+/// The colours a bulb is drawn from, given how lit it is.
+///
+/// Shared with the home screen's tile, which draws the same silhouette with
+/// the plain quad renderer instead of a canvas frame: the geometry differs
+/// with the drawing API, but the colour maths, contrast fixes included,
+/// stays in exactly one place either way.
+pub struct Tones {
+    /// The socket screwing the glass into its base.
+    pub metal: Color,
+    /// Top stop of the glass's gradient.
+    pub top: Color,
+    /// Bottom stop of the glass's gradient.
+    pub bottom: Color,
+    /// The hairline around the glass.
+    pub stroke: Color,
+    /// The specular dot that turns the disc into a sphere.
+    pub highlight: Color,
+}
+
+/// Computes [`Tones`] for a bulb putting out `intensity` of `glow`.
+pub fn tones(skin: Skin, glow: Color, intensity: f32) -> Tones {
+    let intensity = intensity.clamp(0.0, 1.0);
+
+    // `edge` toward `ink_faint`, not `surface_lift`/`surface` toward `edge`:
+    // in the day skin those pairs are both near white, so a resting tone
+    // built from them reads as no bulb at all against the page. Leaning on
+    // ink_faint keeps the glass and the socket visible as their own shapes
+    // in both skins, the same fix the switch's track needed for the same
+    // reason.
+    let metal = tone::mix(
+        tone::mix(skin.edge, skin.ink_faint, 0.5),
+        glow,
+        intensity * 0.12,
+    );
+
+    let base = tone::mix(skin.edge, skin.ink_faint, 0.3);
+    let face = tone::mix(base, glow, intensity);
+
+    Tones {
+        metal,
+        top: tone::mix(face, Color::WHITE, 0.20 + 0.18 * intensity),
+        bottom: tone::mix(face, skin.canvas, 0.18),
+        stroke: tone::mix(
+            tone::mix(skin.edge, skin.ink_faint, 0.6),
+            tone::fade(Color::WHITE, 0.35),
+            intensity,
+        ),
+        highlight: tone::fade(Color::WHITE, 0.10 + 0.14 * intensity),
     }
 }
 

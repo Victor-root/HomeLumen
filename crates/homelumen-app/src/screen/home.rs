@@ -91,9 +91,11 @@ fn header_controls<'a>(
     .into()
 }
 
-/// Below this width the "HomeLumen" wordmark no longer fits next to the
-/// header's controls, so only the mark itself is shown.
-const HEADER_BREAKPOINT: f32 = 300.0;
+/// Below this width the "Home Lumen" wordmark no longer fits next to the
+/// header's controls, so only the mark itself is shown. Under the compact
+/// window's own available width, so the name reads even at the smallest
+/// size HomeLumen opens at.
+const HEADER_BREAKPOINT: f32 = 260.0;
 
 fn header<'a>(
     skin: Skin,
@@ -102,19 +104,23 @@ fn header<'a>(
 ) -> Element<'a, Message> {
     inset(
         responsive(move |available| {
-            let wordmark: Element<'_, Message> = if available.width
-                < HEADER_BREAKPOINT
-            {
-                mark(27.0)
-            } else {
-                row![
-                    mark(27.0),
-                    label("HomeLumen", typo::BODY, typo::MEDIUM, skin.ink_soft),
-                ]
-                .spacing(11)
-                .align_y(Center)
-                .into()
-            };
+            let wordmark: Element<'_, Message> =
+                if available.width < HEADER_BREAKPOINT {
+                    mark(27.0)
+                } else {
+                    row![
+                        mark(27.0),
+                        label(
+                            "Home Lumen",
+                            typo::BODY,
+                            typo::MEDIUM,
+                            skin.ink_soft
+                        ),
+                    ]
+                    .spacing(11)
+                    .align_y(Center)
+                    .into()
+                };
 
             row![
                 wordmark,
@@ -207,7 +213,7 @@ fn empty<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
             column![
                 label(headline, typo::TITLE, typo::SEMIBOLD, skin.ink),
                 label(
-                    "HomeLumen interroge votre réseau local. Si la diffusion est bloquée, ajoutez une adresse à la main.",
+                    "Home Lumen interroge votre réseau local. Si la diffusion est bloquée, ajoutez une adresse à la main.",
                     typo::BODY,
                     typo::REGULAR,
                     skin.ink_faint,

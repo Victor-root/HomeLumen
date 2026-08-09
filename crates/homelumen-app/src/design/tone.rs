@@ -102,5 +102,15 @@ pub fn intensity(state: &LightState) -> f32 {
     }
 
     let level = f32::from(state.brightness.unwrap_or(100)) / 100.0;
+    intensity_at(level)
+}
+
+/// The same curve as [`intensity`], for a light already known to be on and
+/// showing `level` (`0.0..=1.0`) of its brightness.
+///
+/// Split out for widgets that only ever see a tile's own `lit`/`level`
+/// pair, not a full [`LightState`], and still need to glow exactly the way
+/// the light's own screen would.
+pub fn intensity_at(level: f32) -> f32 {
     0.35 + 0.65 * level.clamp(0.0, 1.0).powf(0.65)
 }

@@ -115,6 +115,11 @@ enum Signal {
     },
     /// Time to read the known lights back.
     Poll,
+    /// Time to sweep again on its own, unasked. Distinct from
+    /// `Request(Request::Scan)` so the heartbeat's own sweeps never turn on
+    /// the "scanning" indicator: a light appearing on its own is routine,
+    /// worth showing only when a person actually asked to look.
+    Rescan,
 }
 
 /// Every driver HomeLumen ships with. Adding a manufacturer happens here and
@@ -131,18 +136,26 @@ async fn drive(
     let providers = drivers();
     let mut registry = Registry::default();
     let mut sweeping = false;
+    // Whether the sweep in flight, if any, is one the "scanning" indicator
+    // should own. Kept apart from `sweeping` because a request to scan can
+    // land while the heartbeat's own silent sweep is already running: it
+    // rides along on that same sweep rather than starting a second one.
+    let mut visible = false;
 
     let _ = signals.send(Signal::Request(Request::Scan));
 
     while let Some(signal) = inbox.recv().await {
         match signal {
             Signal::Request(Request::Scan) => {
-                if sweeping {
-                    continue;
+                if !visible {
+                    visible = true;
+                    let _ = events.send(Event::Scanning(true));
                 }
-                sweeping = true;
-                let _ = events.send(Event::Scanning(true));
-                tokio::spawn(sweep(providers.clone(), signals.clone()));
+
+                if !sweeping {
+                    sweeping = true;
+                    tokio::spawn(sweep(providers.clone(), signals.clone()));
+                }
             }
 
             Signal::Request(Request::Apply { device, commands }) => {
@@ -180,7 +193,11 @@ async fn drive(
 
             Signal::SweepFinished => {
                 sweeping = false;
-                let _ = events.send(Event::Scanning(false));
+
+                if visible {
+                    visible = false;
+                    let _ = events.send(Event::Scanning(false));
+                }
             }
 
             Signal::Outcome { device, transport, replay, result } => {
@@ -230,6 +247,14 @@ async fn drive(
                             dispatch(&mut registry, &signals, &device, None);
                     }
                 }
+            }
+
+            Signal::Rescan => {
+                if sweeping {
+                    continue;
+                }
+                sweeping = true;
+                tokio::spawn(sweep(providers.clone(), signals.clone()));
             }
         }
     }
@@ -351,7 +376,7 @@ async fn heartbeat(signals: mpsc::UnboundedSender<Signal>) {
     loop {
         let sent = tokio::select! {
             _ = refresh.tick() => signals.send(Signal::Poll),
-            _ = rescan.tick() => signals.send(Signal::Request(Request::Scan)),
+            _ = rescan.tick() => signals.send(Signal::Rescan),
         };
 
         if sent.is_err() {
