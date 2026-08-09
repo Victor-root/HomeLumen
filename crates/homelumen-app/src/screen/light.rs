@@ -6,7 +6,8 @@
 use homelumen_core::{Capabilities, Color as LightColor};
 use homelumen_engine::LightSnapshot;
 use iced::widget::{
-    Column, button, center, column, container, responsive, row, space,
+    Column, button, center, column, container, responsive, row, scrollable,
+    space,
 };
 use iced::{Center, Element, Fill, Length};
 
@@ -44,6 +45,11 @@ const SOLO: f32 = 560.0;
 const BREAKPOINT: f32 = 760.0;
 
 /// Draws the screen of one light.
+///
+/// The body scrolls: HomeLumen's window can be shrunk down to the point
+/// where a light with both a colour wheel and a white band no longer fits
+/// in one screenful, and nothing here should become unreachable because of
+/// it.
 pub fn view(
     light: &LightSnapshot,
     panel: usize,
@@ -74,11 +80,12 @@ pub fn view(
                     .into(),
             };
 
-            container(body)
-                .padding([gap::GAP, gap::MARGIN])
-                .center_y(Fill)
-                .width(Fill)
-                .into()
+            scrollable(
+                container(body).padding([gap::GAP, gap::MARGIN]).width(Fill),
+            )
+            .height(Fill)
+            .style(style::scroller(skin))
+            .into()
         }),
     ]
     .width(Fill)

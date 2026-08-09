@@ -15,10 +15,10 @@ use iced::{Size, window};
 use app::App;
 use design::typo;
 
-/// The footprint of the Windows Calculator app: HomeLumen opens at this size
-/// and refuses to shrink past it, while still resizing larger or maximizing
-/// freely through the title bar.
-const COMPACT_SIZE: Size = Size::new(344.0, 704.0);
+/// The compact footprint HomeLumen opens at, measured directly off the
+/// window itself: HomeLumen refuses to shrink past this size, while still
+/// resizing larger or maximizing freely through the title bar.
+const COMPACT_SIZE: Size = Size::new(327.0, 563.0);
 
 fn main() -> iced::Result {
     iced::application(App::default, App::update, App::view)

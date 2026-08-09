@@ -65,15 +65,8 @@ fn inset<'a>(
     container(content).padding([0.0, gap::MARGIN])
 }
 
-fn header<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
-    let wordmark = row![
-        mark(27.0),
-        label("HomeLumen", typo::BODY, typo::MEDIUM, skin.ink_soft),
-    ]
-    .spacing(11)
-    .align_y(Center);
-
-    let controls = row![
+fn header_controls<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
+    row![
         round(Glyph::Sweep { busy: scanning }, Message::Sweep, skin),
         round(Glyph::Plus, Message::AddressToggle, skin),
         round(
@@ -85,12 +78,37 @@ fn header<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
             skin,
         ),
     ]
-    .spacing(8);
+    .spacing(8)
+    .into()
+}
 
+/// Below this width the "HomeLumen" wordmark no longer fits next to the
+/// header's controls, so only the mark itself is shown.
+const HEADER_BREAKPOINT: f32 = 300.0;
+
+fn header<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
     inset(
-        row![wordmark, space::horizontal(), controls]
-            .align_y(Center)
-            .width(Fill),
+        responsive(move |available| {
+            let wordmark: Element<'_, Message> = if available.width
+                < HEADER_BREAKPOINT
+            {
+                mark(27.0)
+            } else {
+                row![
+                    mark(27.0),
+                    label("HomeLumen", typo::BODY, typo::MEDIUM, skin.ink_soft),
+                ]
+                .spacing(11)
+                .align_y(Center)
+                .into()
+            };
+
+            row![wordmark, space::horizontal(), header_controls(skin, scanning)]
+                .align_y(Center)
+                .width(Fill)
+                .into()
+        })
+        .height(Length::Shrink),
     )
     .into()
 }
