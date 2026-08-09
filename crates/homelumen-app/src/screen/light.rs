@@ -21,7 +21,7 @@ use iced::widget::{
 use iced::{Center, Element, Fill, Length, Padding, Size};
 
 use crate::app::Message;
-use crate::design::{Skin, tone, typo};
+use crate::design::{Lang, Skin, tone, typo};
 use crate::style::{self, label};
 use crate::widget::bulb::{Bulb, bulb};
 use crate::widget::field::{Field, field};
@@ -64,16 +64,17 @@ pub fn view(
     light: &LightSnapshot,
     panel: usize,
     skin: Skin,
+    lang: Lang,
 ) -> Element<'_, Message> {
     let page = responsive(move |available| {
         let narrow = available.width < BREAKPOINT;
         let capabilities = &light.descriptor.capabilities;
         let density = Density::solve(available, narrow, capabilities);
 
-        let controls = controls(light, skin, &density);
+        let controls = controls(light, skin, lang, &density);
 
         let body: Element<'_, Message> =
-            match advanced(light, panel, skin, &density) {
+            match advanced(light, panel, skin, lang, &density) {
                 Some(panels) if !narrow => row![
                     container(controls).width(Fill),
                     container(panels).width(Length::Fixed(density.aside)),
@@ -149,6 +150,7 @@ fn back<'a>(skin: Skin, size: f32, chevron: f32) -> Element<'a, Message> {
 fn controls<'a>(
     light: &'a LightSnapshot,
     skin: Skin,
+    lang: Lang,
     density: &Density,
 ) -> Element<'a, Message> {
     let device = light.descriptor.id.clone();
@@ -174,7 +176,7 @@ fn controls<'a>(
     let status = if light.online {
         light.address.clone()
     } else {
-        "Hors ligne".to_owned()
+        lang.offline().to_owned()
     };
 
     let model = label(
@@ -205,6 +207,7 @@ fn controls<'a>(
                 light.state.power,
                 emission,
                 skin,
+                lang,
                 Message::Toggle(device.clone()),
             )
             .height(density.power),
@@ -232,6 +235,7 @@ fn advanced<'a>(
     light: &'a LightSnapshot,
     panel: usize,
     skin: Skin,
+    lang: Lang,
     density: &Density,
 ) -> Option<Element<'a, Message>> {
     let capabilities = &light.descriptor.capabilities;
@@ -251,7 +255,7 @@ fn advanced<'a>(
 
         let device = device.clone();
 
-        labels.push("Couleur");
+        labels.push(lang.color_tab());
         panels.push(field(
             Field::new(hue, saturation, skin, move |hue, saturation| {
                 Message::Tint(device.clone(), hue, saturation)
@@ -266,7 +270,7 @@ fn advanced<'a>(
             _ => range.clamp(2700),
         };
 
-        labels.push("Blanc");
+        labels.push(lang.white_tab());
         panels.push(
             column![
                 label(
@@ -284,9 +288,19 @@ fn advanced<'a>(
                 )
                 .height(density.warmth),
                 row![
-                    label("Chaud", typo::MICRO, typo::MEDIUM, skin.ink_faint),
+                    label(
+                        lang.warm(),
+                        typo::MICRO,
+                        typo::MEDIUM,
+                        skin.ink_faint
+                    ),
                     space::horizontal(),
-                    label("Froid", typo::MICRO, typo::MEDIUM, skin.ink_faint),
+                    label(
+                        lang.cool(),
+                        typo::MICRO,
+                        typo::MEDIUM,
+                        skin.ink_faint
+                    ),
                 ]
                 .width(Fill),
             ]

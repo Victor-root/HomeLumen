@@ -16,7 +16,7 @@ use iced::{
     Rectangle, Renderer, Size, Theme, gradient, window,
 };
 
-use crate::design::{Skin, motion, round, tone, typo};
+use crate::design::{Lang, Skin, motion, round, tone, typo};
 use crate::paint::{self, Anchor};
 use crate::widget::tile::power_glyph;
 
@@ -45,14 +45,21 @@ pub struct Power<Message> {
     lit: bool,
     glow: Color,
     skin: Skin,
+    lang: Lang,
     on_toggle: Message,
     height: f32,
 }
 
 impl<Message> Power<Message> {
     /// Builds the control for a light that is currently on or off.
-    pub fn new(lit: bool, glow: Color, skin: Skin, on_toggle: Message) -> Self {
-        Self { lit, glow, skin, on_toggle, height: HEIGHT }
+    pub fn new(
+        lit: bool,
+        glow: Color,
+        skin: Skin,
+        lang: Lang,
+        on_toggle: Message,
+    ) -> Self {
+        Self { lit, glow, skin, lang, on_toggle, height: HEIGHT }
     }
 
     /// Overrides the control's height, so it can shrink on a tight window.
@@ -241,7 +248,7 @@ where
 
         paint::write(
             renderer,
-            if self.lit { "Allumée" } else { "Éteinte" },
+            if self.lit { self.lang.on() } else { self.lang.off() },
             typo::SEMIBOLD,
             typo::LEAD,
             ink,

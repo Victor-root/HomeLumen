@@ -17,7 +17,7 @@ use iced::{
     Rectangle, Renderer, Shadow, Size, Theme, Vector, gradient, window,
 };
 
-use crate::design::{Skin, motion, round, tone, typo};
+use crate::design::{Lang, Skin, motion, round, tone, typo};
 use crate::paint::{self, Anchor};
 use crate::widget::bulb;
 
@@ -44,6 +44,7 @@ pub struct Tile<'a, Message> {
     glow: Color,
     online: bool,
     skin: Skin,
+    lang: Lang,
     on_open: Message,
     on_toggle: Option<Message>,
 }
@@ -54,6 +55,7 @@ impl<'a, Message> Tile<'a, Message> {
         name: &'a str,
         reading: String,
         skin: Skin,
+        lang: Lang,
         on_open: Message,
     ) -> Self {
         Self {
@@ -64,6 +66,7 @@ impl<'a, Message> Tile<'a, Message> {
             glow: skin.accent,
             online: true,
             skin,
+            lang,
             on_open,
             on_toggle: None,
         }
@@ -483,7 +486,7 @@ impl<Message> Tile<'_, Message> {
                 tone::mix(skin.ink_faint, skin.ink_soft, presence),
             )
         } else {
-            ("Hors ligne", skin.alarm)
+            (self.lang.offline(), skin.alarm)
         };
 
         paint::write(

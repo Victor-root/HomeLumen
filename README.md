@@ -20,7 +20,7 @@ affichés dépendent uniquement de ce que l'appareil sait faire.
 | Découverte | diffusion UDP sur toutes les interfaces, plus ajout par adresse |
 | Contrôles | marche/arrêt, luminosité, couleur, blanc chaud/froid |
 | Thèmes | sombre et clair |
-| Langue | interface en français |
+| Langue | anglais et français, détectée depuis la langue du système |
 
 ## Compiler et lancer
 
@@ -154,7 +154,12 @@ pixels ; voir `packaging/linux` pour la partie Linux.
 
 Le vocabulaire visuel tient dans `crates/homelumen-app/src/design/` : les
 couleurs des deux thèmes, l'échelle typographique, le rythme des espacements et
-les durées d'animation. Aucun autre fichier ne choisit une couleur.
+les durées d'animation. Aucun autre fichier ne choisit une couleur. Les textes
+suivent le même principe, dans `design/text.rs` : chaque écran demande sa
+phrase à `Lang` plutôt que de l'écrire lui-même, donc ajouter une langue ne
+demande pas de fouiller les écrans un par un. HomeLumen lit la langue du
+système au démarrage (`sys_locale`) et bascule en anglais dès qu'elle ne
+reconnaît pas ce qu'elle lit, plutôt que de deviner.
 
 La couleur réelle de la lumière traverse toute l'interface : elle teinte sa
 tuile, la halo qu'elle projette sur la page, la sphère de sa fiche, son

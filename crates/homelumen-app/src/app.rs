@@ -6,7 +6,7 @@ use homelumen_core::{Color as LightColor, Command, DeviceId};
 use homelumen_engine::{self as engine, Handle, LightSnapshot, Request};
 use iced::{Element, Size, Subscription, Task};
 
-use crate::design::{Mode, Preference, Skin};
+use crate::design::{Lang, Mode, Preference, Skin};
 use crate::screen;
 
 /// The whole state of the interface.
@@ -17,6 +17,7 @@ pub struct App {
     panel: usize,
     preference: Preference,
     system: Mode,
+    lang: Lang,
     scanning: bool,
     notice: Option<String>,
     address: Option<String>,
@@ -34,6 +35,10 @@ impl Default for App {
             // Until the desktop answers, HomeLumen shows the skin it is
             // designed around rather than guessing at the other one.
             system: Mode::Night,
+            // Unlike the skin, read once and settled here rather than
+            // asked for through a `Task`: the system's locale is already
+            // sitting there for the reading, nothing to wait on.
+            lang: Lang::detect(),
             scanning: false,
             notice: None,
             address: None,
@@ -97,6 +102,11 @@ impl App {
     /// The skin currently in use.
     pub fn skin(&self) -> Skin {
         Skin::of(self.preference.resolve(self.system))
+    }
+
+    /// The language currently in use.
+    pub fn lang(&self) -> Lang {
+        self.lang
     }
 
     /// The theme iced needs for the few things HomeLumen does not paint itself.
@@ -228,12 +238,14 @@ impl App {
     /// Draws whichever screen is in front.
     pub fn view(&self) -> Element<'_, Message> {
         let skin = self.skin();
+        let lang = self.lang();
 
         match self.open_light() {
-            Some(light) => screen::light::view(light, self.panel, skin),
+            Some(light) => screen::light::view(light, self.panel, skin, lang),
             None => screen::home::view(
                 &self.lights,
                 skin,
+                lang,
                 self.preference,
                 self.scanning,
                 self.address.as_deref(),
@@ -304,10 +316,7 @@ impl App {
                 self.notice = None;
             }
             Err(_) => {
-                self.notice = Some(format!(
-                    "« {} » n'est pas une adresse IP",
-                    typed.trim()
-                ));
+                self.notice = Some(self.lang.not_an_ip_address(typed.trim()));
             }
         }
     }

@@ -1163,6 +1163,7 @@ dependencies = [
  "homelumen-core",
  "homelumen-engine",
  "iced",
+ "sys-locale",
  "winresource",
 ]
 

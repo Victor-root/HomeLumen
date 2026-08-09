@@ -8,7 +8,7 @@ use iced::widget::{
 use iced::{Center, Element, Fill, Length};
 
 use crate::app::Message;
-use crate::design::{Preference, Skin, space as gap, tone, typo};
+use crate::design::{Lang, Preference, Skin, space as gap, tone, typo};
 use crate::style::{self, label};
 use crate::widget::glyph::{Glyph, glyph};
 use crate::widget::mark::mark;
@@ -21,15 +21,16 @@ const COLUMN: f32 = 372.0;
 pub fn view<'a>(
     lights: &'a [LightSnapshot],
     skin: Skin,
+    lang: Lang,
     preference: Preference,
     scanning: bool,
     address: Option<&'a str>,
     notice: Option<&'a str>,
 ) -> Element<'a, Message> {
     let body = if lights.is_empty() {
-        empty(skin, scanning)
+        empty(skin, lang, scanning)
     } else {
-        column![heading(lights, skin, scanning), grid(lights, skin)]
+        column![heading(lights, skin, lang, scanning), grid(lights, skin, lang)]
             .spacing(gap::GAP)
             .into()
     };
@@ -38,11 +39,11 @@ pub fn view<'a>(
     page = page.push(header(skin, preference, scanning));
 
     if let Some(typed) = address {
-        page = page.push(inset(address_panel(typed, skin)));
+        page = page.push(inset(address_panel(typed, skin, lang)));
     }
 
     if let Some(message) = notice {
-        page = page.push(inset(banner(message, skin)));
+        page = page.push(inset(banner(message, skin, lang)));
     }
 
     page = page.push(
@@ -139,22 +140,23 @@ fn header<'a>(
 fn heading<'a>(
     lights: &'a [LightSnapshot],
     skin: Skin,
+    lang: Lang,
     scanning: bool,
 ) -> Element<'a, Message> {
     let lit = lights.iter().filter(|light| light.state.power).count();
 
     let summary = match (scanning, lit, lights.len()) {
-        (true, _, _) => "Recherche en cours".to_owned(),
-        (_, 1, 1) => "Une lumière, allumée".to_owned(),
-        (_, 0, 1) => "Une lumière, éteinte".to_owned(),
-        (_, 0, _) => "Tout est éteint".to_owned(),
-        (_, lit, total) if lit == total => "Tout est allumé".to_owned(),
-        (_, 1, total) => format!("1 allumée sur {total}"),
-        (_, lit, total) => format!("{lit} allumées sur {total}"),
+        (true, _, _) => lang.scanning().to_owned(),
+        (_, 1, 1) => lang.one_light_on().to_owned(),
+        (_, 0, 1) => lang.one_light_off().to_owned(),
+        (_, 0, _) => lang.all_off().to_owned(),
+        (_, lit, total) if lit == total => lang.all_on().to_owned(),
+        (_, 1, total) => lang.one_of(total),
+        (_, lit, total) => lang.some_of(lit, total),
     };
 
     column![
-        label("Mes lumières", typo::DISPLAY, typo::SEMIBOLD, skin.ink)
+        label(lang.my_lights(), typo::DISPLAY, typo::SEMIBOLD, skin.ink)
             .line_height(typo::SNUG_LEADING),
         label(summary, typo::BODY, typo::REGULAR, skin.ink_soft),
     ]
@@ -162,15 +164,20 @@ fn heading<'a>(
     .into()
 }
 
-fn grid<'a>(lights: &'a [LightSnapshot], skin: Skin) -> Element<'a, Message> {
+fn grid<'a>(
+    lights: &'a [LightSnapshot],
+    skin: Skin,
+    lang: Lang,
+) -> Element<'a, Message> {
     Grid::with_children(lights.iter().map(|light| {
         let device = light.descriptor.id.clone();
         let level = f32::from(light.state.brightness.unwrap_or(100)) / 100.0;
 
         let mut card = Tile::new(
             &light.descriptor.name,
-            reading(light),
+            reading(light, lang),
             skin,
+            lang,
             Message::Open(device.clone()),
         )
         .light(light.state.power, level, tone::emission(&light.state))
@@ -189,22 +196,22 @@ fn grid<'a>(lights: &'a [LightSnapshot], skin: Skin) -> Element<'a, Message> {
 }
 
 /// The one line of state a tile shows.
-fn reading(light: &LightSnapshot) -> String {
+fn reading(light: &LightSnapshot, lang: Lang) -> String {
     if !light.state.power {
-        return "Éteinte".to_owned();
+        return lang.off().to_owned();
     }
 
     match light.state.brightness {
         Some(level) => format!("{level} %"),
-        None => "Allumée".to_owned(),
+        None => lang.on().to_owned(),
     }
 }
 
-fn empty<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
+fn empty<'a>(skin: Skin, lang: Lang, scanning: bool) -> Element<'a, Message> {
     let headline = if scanning {
-        "Recherche des lumières"
+        lang.searching_for_lights()
     } else {
-        "Aucune lumière pour l'instant"
+        lang.no_lights_yet()
     };
 
     center(
@@ -213,7 +220,7 @@ fn empty<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
             column![
                 label(headline, typo::TITLE, typo::SEMIBOLD, skin.ink),
                 label(
-                    "Home Lumen interroge votre réseau local. Si la diffusion est bloquée, ajoutez une adresse à la main.",
+                    lang.empty_hint(),
                     typo::BODY,
                     typo::REGULAR,
                     skin.ink_faint,
@@ -224,7 +231,7 @@ fn empty<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
             .spacing(gap::SNUG)
             .align_x(Center),
             button(label(
-                "Ajouter une adresse",
+                lang.add_an_address(),
                 typo::BODY,
                 typo::MEDIUM,
                 skin.ink_over_light,
@@ -245,15 +252,10 @@ fn empty<'a>(skin: Skin, scanning: bool) -> Element<'a, Message> {
 /// past this point, so the panel has to keep working there.
 const ADDRESS_BREAKPOINT: f32 = 560.0;
 
-fn address_copy<'a>(skin: Skin) -> Element<'a, Message> {
+fn address_copy<'a>(skin: Skin, lang: Lang) -> Element<'a, Message> {
     column![
-        label("Ajouter par adresse", typo::LEAD, typo::SEMIBOLD, skin.ink),
-        label(
-            "L'adresse locale de la lumière sur votre réseau.",
-            typo::LABEL,
-            typo::REGULAR,
-            skin.ink_faint,
-        ),
+        label(lang.add_by_address(), typo::LEAD, typo::SEMIBOLD, skin.ink),
+        label(lang.address_hint(), typo::LABEL, typo::REGULAR, skin.ink_faint,),
     ]
     .spacing(gap::TIGHT)
     .width(Fill)
@@ -272,9 +274,13 @@ fn address_field<'a>(typed: &'a str, skin: Skin) -> Element<'a, Message> {
         .into()
 }
 
-fn address_submit<'a>(skin: Skin, fill: bool) -> Element<'a, Message> {
+fn address_submit<'a>(
+    skin: Skin,
+    lang: Lang,
+    fill: bool,
+) -> Element<'a, Message> {
     let content =
-        label("Ajouter", typo::BODY, typo::MEDIUM, skin.ink_over_light)
+        label(lang.add(), typo::BODY, typo::MEDIUM, skin.ink_over_light)
             .width(Fill)
             .align_x(Center);
 
@@ -290,23 +296,27 @@ fn address_submit<'a>(skin: Skin, fill: bool) -> Element<'a, Message> {
     submit.into()
 }
 
-fn address_panel<'a>(typed: &'a str, skin: Skin) -> Element<'a, Message> {
+fn address_panel<'a>(
+    typed: &'a str,
+    skin: Skin,
+    lang: Lang,
+) -> Element<'a, Message> {
     container(responsive(move |available| {
         if available.width >= ADDRESS_BREAKPOINT {
             row![
-                address_copy(skin),
+                address_copy(skin, lang),
                 container(address_field(typed, skin))
                     .width(Length::Fixed(220.0)),
-                address_submit(skin, false),
+                address_submit(skin, lang, false),
             ]
             .spacing(gap::STEP)
             .align_y(Center)
             .into()
         } else {
             column![
-                address_copy(skin),
+                address_copy(skin, lang),
                 address_field(typed, skin),
-                address_submit(skin, true),
+                address_submit(skin, lang, true),
             ]
             .spacing(gap::STEP)
             .into()
@@ -318,14 +328,23 @@ fn address_panel<'a>(typed: &'a str, skin: Skin) -> Element<'a, Message> {
     .into()
 }
 
-fn banner<'a>(message: &'a str, skin: Skin) -> Element<'a, Message> {
+fn banner<'a>(
+    message: &'a str,
+    skin: Skin,
+    lang: Lang,
+) -> Element<'a, Message> {
     container(
         row![
             label(message, typo::BODY, typo::REGULAR, skin.alarm).width(Fill),
-            button(label("Fermer", typo::LABEL, typo::MEDIUM, skin.ink_soft))
-                .padding([8.0, 14.0])
-                .style(style::quiet(skin))
-                .on_press(Message::Dismiss),
+            button(label(
+                lang.dismiss(),
+                typo::LABEL,
+                typo::MEDIUM,
+                skin.ink_soft
+            ))
+            .padding([8.0, 14.0])
+            .style(style::quiet(skin))
+            .on_press(Message::Dismiss),
         ]
         .spacing(gap::SNUG)
         .align_y(Center),
