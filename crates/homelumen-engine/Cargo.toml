@@ -1,0 +1,17 @@
+[package]
+name = "homelumen-engine"
+description = "Device registry, route selection and command scheduling for HomeLumen"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+homelumen-core.workspace = true
+homelumen-kasa.workspace = true
+
+futures.workspace = true
+log.workspace = true
+tokio = { workspace = true, features = ["rt", "sync", "time", "macros"] }
