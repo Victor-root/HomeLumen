@@ -252,9 +252,22 @@ where
             height: SWITCH_HEIGHT,
         };
 
+        // The row behind the switch is already tinted with the light's own
+        // colour, so filling the track with that same colour would make it
+        // vanish into its own background on anything but a weak glow. A
+        // translucent scrim reads as a distinct shape against any colour
+        // instead: dark on a light glow, light on a dark one. `self.glow`
+        // rather than `face` picks the side once, so the choice does not
+        // flip mid-animation as `lit` moves `face` across the threshold.
+        let scrim = if tone::luminance(self.glow) > 0.5 {
+            Color::BLACK
+        } else {
+            Color::WHITE
+        };
+
         let track_off = tone::mix(skin.canvas, skin.edge, 0.5);
-        let track_fill = tone::mix(track_off, self.glow, lit);
-        let outline = tone::mix(skin.edge, self.glow, hover * 0.15);
+        let track_fill = tone::mix(track_off, tone::fade(scrim, 0.32), lit);
+        let outline = tone::mix(skin.edge, tone::fade(scrim, 0.65), lit);
 
         renderer.fill_quad(
             renderer::Quad {
@@ -262,9 +275,7 @@ where
                 border: Border {
                     radius: (SWITCH_HEIGHT / 2.0).into(),
                     width: 2.0,
-                    // The outline fades into the fill as the track turns on,
-                    // rather than staying a seam around a now-filled shape.
-                    color: tone::mix(outline, track_fill, lit),
+                    color: outline,
                 },
                 ..renderer::Quad::default()
             },

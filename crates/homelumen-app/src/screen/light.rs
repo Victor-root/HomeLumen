@@ -39,9 +39,9 @@ const BREAKPOINT: f32 = 760.0;
 /// Widest the controls get when a light has no advanced panel at all.
 const SOLO: f32 = 560.0;
 
-/// Height of the back button and its row. Small and fixed: it never needs
-/// to give up room, so it never competes for any.
-const TOP_BAR: f32 = 42.0;
+/// Side of the back button. Small and fixed: it rides along the hero row
+/// without ever needing to be the reason that row is tall.
+const BACK: f32 = 42.0;
 
 /// Draws the screen of one light.
 pub fn view(
@@ -49,46 +49,39 @@ pub fn view(
     panel: usize,
     skin: Skin,
 ) -> Element<'_, Message> {
-    let page = column![
-        top(light, skin),
-        responsive(move |available| {
-            let narrow = available.width < BREAKPOINT;
-            let capabilities = &light.descriptor.capabilities;
-            let density = Density::solve(available, narrow, capabilities);
+    let page = responsive(move |available| {
+        let narrow = available.width < BREAKPOINT;
+        let capabilities = &light.descriptor.capabilities;
+        let density = Density::solve(available, narrow, capabilities);
 
-            let controls = controls(light, skin, &density);
+        let controls = controls(light, skin, &density);
 
-            let body: Element<'_, Message> =
-                match advanced(light, panel, skin, &density) {
-                    Some(panels) if !narrow => row![
-                        container(controls).width(Fill),
-                        container(panels).width(Length::Fixed(density.aside)),
-                    ]
+        let body: Element<'_, Message> =
+            match advanced(light, panel, skin, &density) {
+                Some(panels) if !narrow => row![
+                    container(controls).width(Fill),
+                    container(panels).width(Length::Fixed(density.aside)),
+                ]
+                .spacing(density.gap)
+                .into(),
+                Some(panels) => column![controls, panels]
                     .spacing(density.gap)
+                    .width(Fill)
                     .into(),
-                    Some(panels) => column![controls, panels]
-                        .spacing(density.gap)
-                        .width(Fill)
-                        .into(),
-                    None => container(controls)
-                        .max_width(SOLO)
-                        .width(Fill)
-                        .center_x(Fill)
-                        .into(),
-                };
+                None => container(controls)
+                    .max_width(SOLO)
+                    .width(Fill)
+                    .center_x(Fill)
+                    .into(),
+            };
 
-            scrollable(
-                container(body)
-                    .padding([density.gap, density.margin])
-                    .width(Fill),
-            )
-            .height(Fill)
-            .style(style::scroller(skin))
-            .into()
-        }),
-    ]
-    .width(Fill)
-    .height(Fill);
+        scrollable(
+            container(body).padding([density.gap, density.margin]).width(Fill),
+        )
+        .height(Fill)
+        .style(style::scroller(skin))
+        .into()
+    });
 
     container(page)
         .padding([gap::ROOM_REF, 0.0])
@@ -99,6 +92,11 @@ pub fn view(
 }
 
 /// The identity of the light and the two controls every light deserves.
+///
+/// The back button and the route chip ride along on the same row as the
+/// orb rather than a slim strip of their own above it: a row that already
+/// has to be as tall as the orb has room to spare for both, and a strip
+/// that existed only to hold them was headroom spent on nothing.
 fn controls<'a>(
     light: &'a LightSnapshot,
     skin: Skin,
@@ -107,6 +105,13 @@ fn controls<'a>(
     let device = light.descriptor.id.clone();
     let capabilities = &light.descriptor.capabilities;
     let emission = tone::emission(&light.state);
+
+    let back = button(glyph(Glyph::Back, skin.ink_soft, 20.0))
+        .width(Length::Fixed(BACK))
+        .height(Length::Fixed(BACK))
+        .padding(11.0)
+        .style(style::quiet(skin))
+        .on_press(Message::Back);
 
     let identity = orb(
         Orb::new(emission, tone::intensity(&light.state), skin),
@@ -128,9 +133,30 @@ fn controls<'a>(
         skin.ink_faint,
     );
 
+    // Just the address, not `{transport} · {address}`: the chip now shares
+    // its line with the name instead of a whole row of its own, and a light
+    // named more than a few letters already leaves it little room.
+    let route = if light.online {
+        light.address.clone()
+    } else {
+        "Hors ligne".to_owned()
+    };
+
+    let route_ink = if light.online { skin.ink_soft } else { skin.alarm };
+    let chip = container(label(route, typo::MICRO, typo::MEDIUM, route_ink))
+        .padding([7.0, 14.0])
+        .style(style::chip(skin));
+
+    // The chip rides on the name's own line rather than the row shared with
+    // the orb and the back button: the model line underneath is often the
+    // longest text on the whole screen, and it alone deserves the room
+    // those two leave behind.
+    let identity_line = row![name, space::horizontal(), chip].align_y(Center);
+
     let hero = row![
+        back,
         identity,
-        column![name, model].spacing(density.tight).width(Fill),
+        column![identity_line, model].spacing(density.tight).width(Fill),
     ]
     .spacing(density.step)
     .align_y(Center);
@@ -165,36 +191,6 @@ fn controls<'a>(
     }
 
     stack.push(knobs).into()
-}
-
-fn top<'a>(light: &LightSnapshot, skin: Skin) -> Element<'a, Message> {
-    let back = button(glyph(Glyph::Back, skin.ink_soft, 20.0))
-        .width(Length::Fixed(TOP_BAR))
-        .height(Length::Fixed(TOP_BAR))
-        .padding(11.0)
-        .style(style::quiet(skin))
-        .on_press(Message::Back);
-
-    let route = match (&light.transport, light.online) {
-        (Some(transport), true) => format!("{transport} · {}", light.address),
-        _ => "Hors ligne".to_owned(),
-    };
-
-    let ink = if light.online { skin.ink_soft } else { skin.alarm };
-
-    container(
-        row![
-            back,
-            space::horizontal(),
-            container(label(route, typo::MICRO, typo::MEDIUM, ink))
-                .padding([7.0, 14.0])
-                .style(style::chip(skin)),
-        ]
-        .align_y(Center)
-        .width(Fill),
-    )
-    .padding([0.0, gap::MARGIN_REF])
-    .into()
 }
 
 /// Builds the horizontal panels, if the light has anything to put in them.
@@ -303,7 +299,7 @@ mod gap {
 
     /// Height of the colour field: it fills whatever width it is given, so
     /// only its height answers to density.
-    pub const SWATCH_REF: f32 = 220.0;
+    pub const SWATCH_REF: f32 = 380.0;
     pub const SWATCH_FLOOR: f32 = 120.0;
 
     /// Width of the advanced panels' column in the wide layout.
@@ -314,7 +310,12 @@ mod gap {
     /// the narrow layout stacks instead of squeezing the field further.
     pub const FIELD_MIN_WIDTH: f32 = 200.0;
 
-    pub const PANEL_REF: f32 = 280.0;
+    /// Least width the name and model column can read in without wrapping,
+    /// in the wide layout's hero row. Not density-scaled: it is a floor on
+    /// the text itself, not on the room around it.
+    pub const HERO_TEXT_MIN: f32 = 150.0;
+
+    pub const PANEL_REF: f32 = 420.0;
     pub const PANEL_FLOOR: f32 = 140.0;
 
     pub const POWER_REF: f32 = crate::widget::power::HEIGHT;
@@ -419,15 +420,11 @@ impl Density {
             spacious.needed_height(narrow, capabilities),
         );
 
-        let width_t = if narrow {
-            solve_axis(
-                available.width,
-                floor.needed_width(capabilities),
-                spacious.needed_width(capabilities),
-            )
-        } else {
-            1.0
-        };
+        let width_t = solve_axis(
+            available.width,
+            floor.needed_width(narrow, capabilities),
+            spacious.needed_width(narrow, capabilities),
+        );
 
         Self::at(height_t.min(width_t))
     }
@@ -463,9 +460,9 @@ impl Density {
     }
 
     /// Total height the body would need inside the space `responsive` hands
-    /// it, laid out the way `narrow` says. `top()` and the page's own
-    /// padding sit outside that space already, so only the padding the body
-    /// adds for itself counts here.
+    /// it, laid out the way `narrow` says. The page's own padding sits
+    /// outside that space already, so only the padding the body adds for
+    /// itself counts here.
     fn needed_height(&self, narrow: bool, capabilities: &Capabilities) -> f32 {
         let controls = self.controls_height(capabilities);
         let panels = self.panels_height(capabilities);
@@ -481,12 +478,27 @@ impl Density {
         2.0 * self.gap + content
     }
 
-    /// Total width the narrow (stacked) layout would need: only the colour
-    /// field forces a minimum here, everything else is happy to fill
-    /// whatever is left.
-    fn needed_width(&self, capabilities: &Capabilities) -> f32 {
-        let field = if capabilities.color { gap::FIELD_MIN_WIDTH } else { 0.0 };
-        2.0 * self.margin + field
+    /// Total width the layout would need, stacked or side by side.
+    ///
+    /// Narrow: only the colour field forces a minimum, everything else is
+    /// happy to fill whatever is left. Wide: the hero row now carries the
+    /// back button and the route chip alongside the orb and the name, so
+    /// the room the aside column claims has to be counted against it too,
+    /// or a window just past the breakpoint can ask for more than it has.
+    fn needed_width(&self, narrow: bool, capabilities: &Capabilities) -> f32 {
+        if narrow {
+            let field =
+                if capabilities.color { gap::FIELD_MIN_WIDTH } else { 0.0 };
+            return 2.0 * self.margin + field;
+        }
+
+        let hero = BACK + 2.0 * self.step + self.orb + gap::HERO_TEXT_MIN;
+
+        let has_aside =
+            capabilities.color || capabilities.color_temperature.is_some();
+        let aside = if has_aside { self.gap + self.aside } else { 0.0 };
+
+        2.0 * self.margin + hero + aside
     }
 }
 
