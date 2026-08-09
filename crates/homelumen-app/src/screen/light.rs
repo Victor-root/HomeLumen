@@ -46,17 +46,17 @@ const SOLO: f32 = 560.0;
 /// defined by this exact number so that moving the button never moves it.
 const HERO_TOP_RESERVE: f32 = 29.0;
 
-/// Side of the floating back button. Small and deliberately slight, so it
-/// reads as a way out rather than a control competing with the bulb for
-/// attention.
-const BACK_SIZE: f32 = 20.0;
+/// Side of the floating back button. Sized to stand out as a real point of
+/// entry rather than a discreet afterthought, while still leaving a sliver
+/// of the room `crown + HERO_TOP_RESERVE` keeps free above the hero on
+/// either side of it, top and bottom alike.
+const BACK_SIZE: f32 = 25.0;
 
-/// Distance from the window's own corner to the back button, top and left
-/// alike: enough that it reads as tucked into the corner rather than glued
-/// to it, while staying well inside the room `HERO_TOP_RESERVE` already
-/// keeps free above the hero.
-const BACK_TOP: f32 = 6.0;
-const BACK_LEFT: f32 = 7.0;
+/// Distance from the window's own left edge to the back button: fixed
+/// rather than centred on the hero's own left margin, since the button is
+/// close in size to that margin and a true centre would push part of it
+/// past the window's edge.
+const BACK_LEFT: f32 = 6.0;
 
 /// Draws the screen of one light.
 pub fn view(
@@ -94,11 +94,16 @@ pub fn view(
         // `HERO_TOP_RESERVE`: the back button used to earn that offset by
         // sitting in its own row just above, but now floats over it as a
         // layer of its own, so repositioning the button never moves the
-        // hero underneath it.
+        // hero underneath it. Its own top offset centres it in exactly that
+        // reserved room, halfway between the window's corner and the hero
+        // it precedes.
+        let reserved = density.crown + HERO_TOP_RESERVE;
+        let back_top = (reserved - BACK_SIZE) / 2.0;
+
         let content = stack![
             container(body)
                 .padding(Padding {
-                    top: density.crown + HERO_TOP_RESERVE,
+                    top: reserved,
                     right: density.margin,
                     bottom: density.gap,
                     left: density.margin,
@@ -106,7 +111,7 @@ pub fn view(
                 .width(Fill),
             container(back(skin))
                 .padding(Padding {
-                    top: BACK_TOP,
+                    top: back_top,
                     right: 0.0,
                     bottom: 0.0,
                     left: BACK_LEFT,
@@ -125,10 +130,10 @@ pub fn view(
 /// The way out: a small button floating in its own corner of the screen,
 /// entirely apart from the hero's own layout.
 fn back<'a>(skin: Skin) -> Element<'a, Message> {
-    button(glyph(Glyph::Back, skin.ink_soft, 10.0))
+    button(glyph(Glyph::Back, skin.ink_soft, 13.0))
         .width(Length::Fixed(BACK_SIZE))
         .height(Length::Fixed(BACK_SIZE))
-        .padding(5.0)
+        .padding(6.0)
         .style(style::quiet(skin))
         .on_press(Message::Back)
         .into()
