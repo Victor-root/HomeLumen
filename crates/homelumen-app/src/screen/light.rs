@@ -5,8 +5,8 @@
 //!
 //! Everything on this screen also answers to how much room the window
 //! actually gives it. HomeLumen's window can be shrunk a long way, and a
-//! light with both a colour wheel and a white band has a lot to show; rather
-//! than let the screen overflow into a scrollbar, the orb, the disc, the
+//! light with both a colour field and a white band has a lot to show; rather
+//! than let the screen overflow into a scrollbar, the orb, the field, the
 //! panels and the spacing between them all shrink together, continuously,
 //! down to a floor that still reads and still works. The scrollable wrapped
 //! around it all is a safety net for a capability combination this budget
@@ -23,6 +23,7 @@ use iced::{Center, Element, Fill, Length, Size};
 use crate::app::Message;
 use crate::design::{Skin, tone, typo};
 use crate::style::{self, label};
+use crate::widget::field::{Field, field};
 use crate::widget::glyph::{Glyph, glyph};
 use crate::widget::level::Level;
 use crate::widget::orb::{Orb, orb};
@@ -30,7 +31,6 @@ use crate::widget::pages::Pages;
 use crate::widget::power::Power;
 use crate::widget::segmented::Segmented;
 use crate::widget::warmth::Warmth;
-use crate::widget::wheel::{Wheel, wheel};
 
 /// Below this width the advanced panels no longer fit next to the controls,
 /// so the two stack instead of sitting side by side.
@@ -62,7 +62,7 @@ pub fn view(
                 match advanced(light, panel, skin, &density) {
                     Some(panels) if !narrow => row![
                         container(controls).width(Fill),
-                        container(panels).width(Length::Fixed(density.aside())),
+                        container(panels).width(Length::Fixed(density.aside)),
                     ]
                     .spacing(density.gap)
                     .into(),
@@ -222,15 +222,12 @@ fn advanced<'a>(
         let device = device.clone();
 
         labels.push("Couleur");
-        panels.push(
-            center(wheel(
-                Wheel::new(hue, saturation, skin, move |hue, saturation| {
-                    Message::Tint(device.clone(), hue, saturation)
-                }),
-                density.disc,
-            ))
-            .into(),
-        );
+        panels.push(field(
+            Field::new(hue, saturation, skin, move |hue, saturation| {
+                Message::Tint(device.clone(), hue, saturation)
+            }),
+            density.swatch,
+        ));
     }
 
     if let Some(range) = color_temperature {
@@ -304,10 +301,20 @@ mod gap {
     pub const ORB_REF: f32 = 204.0;
     pub const ORB_FLOOR: f32 = 60.0;
 
-    pub const DISC_REF: f32 = 348.0;
-    pub const DISC_FLOOR: f32 = 120.0;
+    /// Height of the colour field: it fills whatever width it is given, so
+    /// only its height answers to density.
+    pub const SWATCH_REF: f32 = 220.0;
+    pub const SWATCH_FLOOR: f32 = 120.0;
 
-    pub const PANEL_REF: f32 = 408.0;
+    /// Width of the advanced panels' column in the wide layout.
+    pub const ASIDE_REF: f32 = 420.0;
+    pub const ASIDE_FLOOR: f32 = 220.0;
+
+    /// The colour field cannot usefully get narrower than this; below it,
+    /// the narrow layout stacks instead of squeezing the field further.
+    pub const FIELD_MIN_WIDTH: f32 = 200.0;
+
+    pub const PANEL_REF: f32 = 280.0;
     pub const PANEL_FLOOR: f32 = 140.0;
 
     pub const POWER_REF: f32 = crate::widget::power::HEIGHT;
@@ -351,7 +358,8 @@ mod gap {
 /// controls staying generous while others go cramped.
 struct Density {
     orb: f32,
-    disc: f32,
+    swatch: f32,
+    aside: f32,
     panel: f32,
     power: f32,
     level: f32,
@@ -373,7 +381,8 @@ impl Density {
 
         Self {
             orb: lerp(gap::ORB_FLOOR, gap::ORB_REF),
-            disc: lerp(gap::DISC_FLOOR, gap::DISC_REF),
+            swatch: lerp(gap::SWATCH_FLOOR, gap::SWATCH_REF),
+            aside: lerp(gap::ASIDE_FLOOR, gap::ASIDE_REF),
             panel: lerp(gap::PANEL_FLOOR, gap::PANEL_REF),
             power: lerp(gap::POWER_FLOOR, gap::POWER_REF),
             level: lerp(gap::LEVEL_FLOOR, gap::LEVEL_REF),
@@ -421,11 +430,6 @@ impl Density {
         };
 
         Self::at(height_t.min(width_t))
-    }
-
-    /// Width of the column the advanced panels sit in, in the wide layout.
-    fn aside(&self) -> f32 {
-        self.disc + 56.0
     }
 
     fn hero_height(&self) -> f32 {
@@ -478,11 +482,11 @@ impl Density {
     }
 
     /// Total width the narrow (stacked) layout would need: only the colour
-    /// disc forces a minimum here, everything else is happy to fill
+    /// field forces a minimum here, everything else is happy to fill
     /// whatever is left.
     fn needed_width(&self, capabilities: &Capabilities) -> f32 {
-        let disc = if capabilities.color { self.disc } else { 0.0 };
-        2.0 * self.margin + disc
+        let field = if capabilities.color { gap::FIELD_MIN_WIDTH } else { 0.0 };
+        2.0 * self.margin + field
     }
 }
 

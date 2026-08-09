@@ -13,7 +13,7 @@ use iced::time::Instant;
 use iced::touch;
 use iced::{
     Background, Border, Color, Element, Event, Length, Point, Radians,
-    Rectangle, Renderer, Size, Theme, gradient, window,
+    Rectangle, Renderer, Shadow, Size, Theme, Vector, gradient, window,
 };
 
 use crate::design::{Skin, motion, round, tone, typo};
@@ -24,8 +24,15 @@ use crate::widget::tile::power_glyph;
 pub const HEIGHT: f32 = 86.0;
 
 const PAD: f32 = 26.0;
+
+// The switch, drawn Material Design 3 style: the track outlines when off and
+// fills when on, and the thumb itself grows as it crosses over, rather than
+// a fixed dot that only slides.
 const SWITCH_WIDTH: f32 = 58.0;
 const SWITCH_HEIGHT: f32 = 32.0;
+const THUMB_OFF: f32 = 16.0;
+const THUMB_ON: f32 = 26.0;
+const THUMB_GAP: f32 = 4.0;
 
 /// The on/off control.
 pub struct Power<Message> {
@@ -245,33 +252,52 @@ where
             height: SWITCH_HEIGHT,
         };
 
+        let track_off = tone::mix(skin.canvas, skin.edge, 0.5);
+        let track_fill = tone::mix(track_off, self.glow, lit);
+        let outline = tone::mix(skin.edge, self.glow, hover * 0.15);
+
         renderer.fill_quad(
-            paint::plate(switch, SWITCH_HEIGHT / 2.0),
-            Background::Color(tone::mix(
-                tone::mix(skin.canvas, skin.edge, 0.5),
-                tone::fade(skin.ink_over_light, 0.22),
-                lit,
-            )),
+            renderer::Quad {
+                bounds: switch,
+                border: Border {
+                    radius: (SWITCH_HEIGHT / 2.0).into(),
+                    width: 2.0,
+                    // The outline fades into the fill as the track turns on,
+                    // rather than staying a seam around a now-filled shape.
+                    color: tone::mix(outline, track_fill, lit),
+                },
+                ..renderer::Quad::default()
+            },
+            Background::Color(track_fill),
         );
 
-        let travel = SWITCH_WIDTH - SWITCH_HEIGHT + 6.0;
-        let dot = SWITCH_HEIGHT - 6.0;
+        // Off sits small and to the left; on grows and moves to the right,
+        // rather than a fixed dot that only slides.
+        let thumb = THUMB_OFF + (THUMB_ON - THUMB_OFF) * lit;
+        let start = switch.x + THUMB_GAP + THUMB_OFF / 2.0;
+        let end = switch.x + SWITCH_WIDTH - THUMB_GAP - THUMB_ON / 2.0;
+        let center = Point::new(start + (end - start) * lit, switch.center_y());
 
         renderer.fill_quad(
-            paint::plate(
-                Rectangle {
-                    x: switch.x + 3.0 + travel * lit - 3.0 * lit,
-                    y: switch.y + 3.0,
-                    width: dot,
-                    height: dot,
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: center.x - thumb / 2.0,
+                    y: center.y - thumb / 2.0,
+                    width: thumb,
+                    height: thumb,
                 },
-                dot / 2.0,
-            ),
-            Background::Color(tone::mix(
-                skin.ink_soft,
-                Color::WHITE,
-                0.4 + 0.6 * lit,
-            )),
+                border: Border {
+                    radius: (thumb / 2.0).into(),
+                    ..Border::default()
+                },
+                shadow: Shadow {
+                    color: tone::fade(skin.shadow, 0.3),
+                    offset: Vector::new(0.0, 1.0),
+                    blur_radius: 3.0,
+                },
+                ..renderer::Quad::default()
+            },
+            Background::Color(tone::mix(skin.ink_faint, Color::WHITE, lit)),
         );
     }
 }

@@ -518,7 +518,7 @@ pub fn power_glyph(
         renderer::Quad {
             bounds: Rectangle {
                 x: center.x - radius,
-                y: center.y - radius + size * 0.06,
+                y: center.y - radius,
                 width: size,
                 height: size,
             },

@@ -117,21 +117,6 @@ where
         }
     }
 
-    fn mouse_interaction(
-        &self,
-        _tree: &tree::Tree,
-        layout: Layout<'_>,
-        cursor: mouse::Cursor,
-        _viewport: &Rectangle,
-        _renderer: &Renderer,
-    ) -> mouse::Interaction {
-        if cursor.is_over(layout.bounds()) {
-            mouse::Interaction::ResizingHorizontally
-        } else {
-            mouse::Interaction::None
-        }
-    }
-
     fn draw(
         &self,
         tree: &tree::Tree,

@@ -36,7 +36,12 @@ impl Registry {
                     device.descriptor.name = found.descriptor.name;
                 }
 
-                device.state = found.state;
+                // Not `device.state = found.state`: a sweep's answer can be
+                // in flight for up to `SWEEP_WINDOW`, long enough for a
+                // command issued mid-sweep to anticipate and settle before
+                // the sweep's own, now-stale answer lands. State stays the
+                // job of `anticipate` and `settle`, which are ordered
+                // against the user's intent; discovery only owns routing.
                 device.online = true;
                 device.attach(Route {
                     endpoint: found.endpoint,

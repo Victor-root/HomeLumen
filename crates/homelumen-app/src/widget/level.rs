@@ -10,8 +10,8 @@ use iced::advanced::layout::{self, Layout};
 use iced::advanced::widget::{Widget, tree};
 use iced::advanced::{Clipboard, Renderer as _, Shell, mouse, renderer};
 use iced::{
-    Background, Color, Element, Event, Length, Point, Radians, Rectangle,
-    Renderer, Size, Theme, gradient,
+    Background, Border, Color, Element, Event, Length, Point, Radians,
+    Rectangle, Renderer, Shadow, Size, Theme, Vector, gradient,
 };
 
 use crate::design::{Skin, tone, typo};
@@ -23,6 +23,9 @@ use crate::widget::track::{self, Gesture, Slide};
 pub const HEIGHT: f32 = 116.0;
 
 const PAD: f32 = 30.0;
+
+const KNOB_WIDTH: f32 = 14.0;
+const KNOB_INSET: f32 = 9.0;
 
 /// A brightness control.
 pub struct Level<'a, Message> {
@@ -114,21 +117,6 @@ where
             Gesture::Released => shell.request_redraw(),
             Gesture::Restless => shell.request_redraw(),
             Gesture::Idle => {}
-        }
-    }
-
-    fn mouse_interaction(
-        &self,
-        _tree: &tree::Tree,
-        layout: Layout<'_>,
-        cursor: mouse::Cursor,
-        _viewport: &Rectangle,
-        _renderer: &Renderer,
-    ) -> mouse::Interaction {
-        if cursor.is_over(layout.bounds()) {
-            mouse::Interaction::ResizingHorizontally
-        } else {
-            mouse::Interaction::None
         }
     }
 
@@ -231,6 +219,37 @@ where
                 width: (bounds.x + bounds.width - split).max(0.0),
                 ..bounds
             },
+        );
+
+        // A handle at the fill's edge, so the capsule reads as something to
+        // grab and drag rather than just a reading that happens to change.
+        // A slim bar rather than a disc: a disc this tall would sit right on
+        // top of the reading at low values instead of beside it.
+        let width = KNOB_WIDTH + 2.0 * attention;
+        let height = bounds.height - KNOB_INSET * 2.0;
+        let center = Point::new(bounds.x + head, bounds.center_y());
+
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: center.x - width / 2.0,
+                    y: center.y - height / 2.0,
+                    width,
+                    height,
+                },
+                border: Border {
+                    radius: (width / 2.0).into(),
+                    width: 3.0,
+                    color: Color::WHITE,
+                },
+                shadow: Shadow {
+                    color: tone::fade(skin.shadow, 0.35),
+                    offset: Vector::new(0.0, 2.0),
+                    blur_radius: 10.0,
+                },
+                ..renderer::Quad::default()
+            },
+            Background::Color(tone::mix(glow, Color::WHITE, 0.25)),
         );
     }
 }
