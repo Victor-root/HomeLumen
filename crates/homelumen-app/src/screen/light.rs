@@ -49,15 +49,17 @@ const HERO_TOP_RESERVE: f32 = 29.0;
 /// Fraction of the room reserved above the hero that the back button fills.
 /// A fraction of what is actually there, rather than a fixed size guessed
 /// at from one measurement, so the button reads as a real point of entry
-/// wherever that reserved room turns out to render, and always leaves a
-/// visible sliver of it free on both sides, top and bottom alike.
-const BACK_FRACTION: f32 = 0.88;
+/// wherever that reserved room turns out to render. Well short of filling
+/// that room: the point is a button that visibly sits halfway between the
+/// corner and the hero, with room to read as such on every side, not one
+/// that happens to leave a sliver left over after growing as large as it
+/// possibly could.
+const BACK_FRACTION: f32 = 0.6;
 
-/// Distance from the window's own left edge to the back button: fixed
-/// rather than centred on the hero's own left margin, since the button is
-/// close in size to that margin and a true centre would push part of it
-/// past the window's edge.
-const BACK_LEFT: f32 = 6.0;
+/// Least distance kept between the back button and the window's own left
+/// edge, however far centring it on the hero's own left margin would
+/// otherwise push it.
+const BACK_LEFT_MIN: f32 = 4.0;
 
 /// Draws the screen of one light.
 pub fn view(
@@ -95,12 +97,14 @@ pub fn view(
         // `HERO_TOP_RESERVE`: the back button used to earn that offset by
         // sitting in its own row just above, but now floats over it as a
         // layer of its own, so repositioning the button never moves the
-        // hero underneath it. The button itself fills most of that same
-        // reserved room and centres in it, halfway between the window's
-        // corner and the hero it precedes.
+        // hero underneath it. The button itself centres in that same
+        // reserved room on both axes: halfway down it, between the
+        // window's top edge and the hero, and halfway across it, between
+        // the window's left edge and the hero's own left margin.
         let reserved = density.crown + HERO_TOP_RESERVE;
         let back_size = reserved * BACK_FRACTION;
         let back_top = (reserved - back_size) / 2.0;
+        let back_left = ((density.margin - back_size) / 2.0).max(BACK_LEFT_MIN);
 
         let content = stack![
             container(body)
@@ -116,7 +120,7 @@ pub fn view(
                     top: back_top,
                     right: 0.0,
                     bottom: 0.0,
-                    left: BACK_LEFT,
+                    left: back_left,
                 })
                 .width(Fill)
                 .height(Fill),
