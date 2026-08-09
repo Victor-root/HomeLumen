@@ -46,12 +46,18 @@ const SOLO: f32 = 560.0;
 /// defined by this exact number so that moving the button never moves it.
 const HERO_TOP_RESERVE: f32 = 29.0;
 
-/// Side of the back button, as a fraction of the bulb it sits beside:
-/// clamped so it stays a real, prominent size even next to the smallest
-/// bulb, without growing past a hand's size next to the largest one.
+/// Side of the back button's chevron, as a fraction of the bulb it sits
+/// beside: clamped so it stays a real, prominent size even next to the
+/// smallest bulb, without growing past a hand's size next to the largest
+/// one.
 const BACK_ORB_FRACTION: f32 = 0.45;
 const BACK_MIN: f32 = 32.0;
 const BACK_MAX: f32 = 72.0;
+
+/// How much smaller the circle around the chevron is than that reference
+/// size: the chevron itself stays put, only the circle it sits inside
+/// draws in a little tighter around it.
+const BACK_CIRCLE: f32 = 0.82;
 
 /// Draws the screen of one light.
 pub fn view(
@@ -93,8 +99,9 @@ pub fn view(
         // top-left corner, straddling it the way it was drawn: half in the
         // empty corner of the window, half over the bulb it sits beside.
         let reserved = density.crown + HERO_TOP_RESERVE;
-        let back_size =
+        let chevron_anchor =
             (density.orb * BACK_ORB_FRACTION).clamp(BACK_MIN, BACK_MAX);
+        let back_size = chevron_anchor * BACK_CIRCLE;
         let back_top = (reserved - back_size / 2.0).max(0.0);
         let back_left = (density.margin - back_size / 2.0).max(0.0);
 
@@ -107,7 +114,7 @@ pub fn view(
                     left: density.margin,
                 })
                 .width(Fill),
-            container(back(skin, back_size))
+            container(back(skin, back_size, chevron_anchor * 0.5))
                 .padding(Padding {
                     top: back_top,
                     right: 0.0,
@@ -126,12 +133,13 @@ pub fn view(
 }
 
 /// The way out: a button floating in its own corner of the screen, entirely
-/// apart from the hero's own layout, sized to `size`.
-fn back<'a>(skin: Skin, size: f32) -> Element<'a, Message> {
-    button(glyph(Glyph::Back, skin.ink_soft, size * 0.5))
+/// apart from the hero's own layout. `size` is the circle's own side;
+/// `chevron` is the arrow's, independent of it.
+fn back<'a>(skin: Skin, size: f32, chevron: f32) -> Element<'a, Message> {
+    button(glyph(Glyph::Back, skin.ink_soft, chevron))
         .width(Length::Fixed(size))
         .height(Length::Fixed(size))
-        .padding(size * 0.25)
+        .padding((size - chevron) / 2.0)
         .style(style::corner(skin))
         .on_press(Message::Back)
         .into()
