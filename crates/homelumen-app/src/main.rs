@@ -20,6 +20,28 @@ use design::typo;
 /// resizing larger or maximizing freely through the title bar.
 const COMPACT_SIZE: Size = Size::new(385.0, 573.0);
 
+/// The window HomeLumen opens.
+///
+/// On most Linux desktops, GNOME chief among them, the taskbar or dock
+/// entry for a running window is matched to an installed `.desktop` file by
+/// this id, not by the icon the window sets on itself at start-up; see
+/// `packaging/linux` for the file that has to agree with it.
+fn window() -> window::Settings {
+    let mut settings = window::Settings {
+        size: COMPACT_SIZE,
+        min_size: Some(COMPACT_SIZE),
+        icon: icon::window(),
+        ..window::Settings::default()
+    };
+
+    #[cfg(target_os = "linux")]
+    {
+        settings.platform_specific.application_id = "homelumen".into();
+    }
+
+    settings
+}
+
 fn main() -> iced::Result {
     iced::application(App::boot, App::update, App::view)
         .title(App::title)
@@ -32,12 +54,7 @@ fn main() -> iced::Result {
         .font(typo::EMBEDDED)
         .default_font(typo::REGULAR)
         .antialiasing(true)
-        .window(window::Settings {
-            size: COMPACT_SIZE,
-            min_size: Some(COMPACT_SIZE),
-            icon: icon::window(),
-            ..window::Settings::default()
-        })
+        .window(window())
         .centered()
         .run()
 }

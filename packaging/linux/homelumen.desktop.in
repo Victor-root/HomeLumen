@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Home Lumen
+GenericName=Éclairage connecté
+Comment=Piloter ses éclairages connectés
+Exec=__EXEC__
+Icon=homelumen
+Categories=Utility;
+StartupWMClass=homelumen
+Terminal=false

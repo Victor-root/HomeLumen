@@ -53,6 +53,26 @@ dessin est incorrect : les tracés vectoriels (logo, icônes, roue de couleur)
 disparaissent. Ce n'est pas un défaut de HomeLumen, mais il vaut mieux le
 savoir.
 
+Lancée directement avec `cargo run` ou depuis le binaire compilé, l'icône de
+la fenêtre n'apparaît pas forcément dans la barre des tâches : la plupart des
+bureaux (GNOME, Cinnamon, la plupart des dérivés d'Ubuntu, donc de Zorin OS)
+associent l'icône d'une fenêtre en cours d'exécution à un fichier `.desktop`
+installé, pas à la fenêtre elle-même. Pour l'installer :
+
+```
+mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/256x256/apps
+cp assets/icon/icon.png ~/.local/share/icons/hicolor/256x256/apps/homelumen.png
+sed "s|__EXEC__|$(pwd)/target/release/homelumen|" \
+  packaging/linux/homelumen.desktop.in > ~/.local/share/applications/homelumen.desktop
+update-desktop-database ~/.local/share/applications 2>/dev/null
+gtk-update-icon-cache ~/.local/share/icons/hicolor 2>/dev/null
+```
+
+À lancer depuis la racine du dépôt, une fois `cargo build --release` fait :
+la commande reprend le chemin de l'exécutable tel qu'il se trouve à cet
+endroit précis. HomeLumen apparaît alors dans le menu des applications avec
+son icône, et la barre des tâches la reprend une fois lancée depuis là.
+
 ## Architecture
 
 Quatre crates, du plus général au plus concret.
@@ -127,11 +147,12 @@ la capsule de luminosité, la roue de couleur, la bande de blanc, le logo et les
 icônes. Aucun composant n'a son apparence d'origine, et il n'y a ni police
 d'icônes ni fichier d'image : les tracés sont des vecteurs calculés, et l'icône
 de la fenêtre est rastérisée au démarrage. La seule exception est
-`crates/homelumen-app/assets/icon.ico`, un export figé de ce même dessin :
-Windows en a besoin pour afficher l'icône dans l'Explorateur et le menu
-contextuel de la barre des tâches, deux endroits qui lisent l'exécutable
-directement plutôt que la fenêtre en cours d'exécution. Si le dessin de
-`src/icon.rs` change, ce fichier doit être régénéré à partir des mêmes pixels.
+`assets/icon/`, un export figé de ce même dessin en `.ico` et en `.png` :
+Windows et les bureaux Linux en ont besoin pour afficher l'icône en dehors de
+la fenêtre elle-même (Explorateur et menu contextuel de la barre des tâches
+sous Windows, barre des tâches et launcher sous Linux). Si le dessin de
+`src/icon.rs` change, ces fichiers doivent être régénérés à partir des mêmes
+pixels ; voir `packaging/linux` pour la partie Linux.
 
 Le vocabulaire visuel tient dans `crates/homelumen-app/src/design/` : les
 couleurs des deux thèmes, l'échelle typographique, le rythme des espacements et
