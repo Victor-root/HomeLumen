@@ -20,7 +20,7 @@ use crate::design::{Skin, motion, round, tone, typo};
 use crate::paint::{self, Anchor};
 use crate::widget::tile::power_glyph;
 
-/// Height of the control.
+/// Height of the control at its most spacious.
 pub const HEIGHT: f32 = 86.0;
 
 const PAD: f32 = 26.0;
@@ -33,12 +33,19 @@ pub struct Power<Message> {
     glow: Color,
     skin: Skin,
     on_toggle: Message,
+    height: f32,
 }
 
 impl<Message> Power<Message> {
     /// Builds the control for a light that is currently on or off.
     pub fn new(lit: bool, glow: Color, skin: Skin, on_toggle: Message) -> Self {
-        Self { lit, glow, skin, on_toggle }
+        Self { lit, glow, skin, on_toggle, height: HEIGHT }
+    }
+
+    /// Overrides the control's height, so it can shrink on a tight window.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = height;
+        self
     }
 }
 
@@ -75,7 +82,7 @@ where
     }
 
     fn size(&self) -> Size<Length> {
-        Size::new(Length::Fill, Length::Fixed(HEIGHT))
+        Size::new(Length::Fill, Length::Fixed(self.height))
     }
 
     fn layout(
@@ -84,7 +91,7 @@ where
         _renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        layout::atomic(limits, Length::Fill, Length::Fixed(HEIGHT))
+        layout::atomic(limits, Length::Fill, Length::Fixed(self.height))
     }
 
     fn update(

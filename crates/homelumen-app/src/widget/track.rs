@@ -29,17 +29,22 @@ impl Slide {
             now: Instant::now(),
             hover: motion::hover(),
             holding: false,
-            // Just enough smoothing to take the stutter out of a drag without
-            // letting the fill trail behind the pointer.
-            shown: Animation::new(value)
-                .easing(Easing::Linear)
-                .duration(Duration::from_millis(80)),
+            shown: settled(value),
         }
     }
 
     /// The value to paint right now.
     pub fn shown(&self) -> f32 {
         self.shown.interpolate_with(|value| value, self.now)
+    }
+
+    /// Jumps the shown value straight to `value`, with no easing at all.
+    ///
+    /// Used while the pointer is actively dragging: the fill has to sit
+    /// exactly under the cursor on every frame, not ease a step behind it,
+    /// which is what made earlier drags feel laggy.
+    fn snap(&mut self, value: f32) {
+        self.shown = settled(value);
     }
 
     /// How strongly the control is being pointed at.
@@ -52,6 +57,17 @@ impl Slide {
     pub fn busy(&self) -> bool {
         self.hover.is_animating(self.now) || self.shown.is_animating(self.now)
     }
+}
+
+/// An animation that starts, already, at `value`: not a transition, a fact.
+///
+/// Building a fresh one is how a value gets adopted with no lag, while
+/// keeping the same easing and duration ready for whatever transitions
+/// after it.
+fn settled(value: f32) -> Animation<f32> {
+    Animation::new(value)
+        .easing(Easing::Linear)
+        .duration(Duration::from_millis(80))
 }
 
 /// What the pointer just did to a capsule.
@@ -81,7 +97,13 @@ pub fn track(
     match event {
         Event::Window(window::Event::RedrawRequested(now)) => {
             slide.now = *now;
-            slide.shown.go_mut(value, *now);
+            // While the pointer is holding the capsule, `shown` is already
+            // being driven straight off the cursor below; letting this ease
+            // toward `value` too would fight that with the previous,
+            // not-yet-published fraction and the drag would visibly stutter.
+            if !slide.holding {
+                slide.shown.go_mut(value, *now);
+            }
             slide.hover.go_mut(cursor.is_over(bounds), *now);
 
             if slide.busy() { Gesture::Restless } else { Gesture::Idle }
@@ -92,7 +114,9 @@ pub fn track(
             match cursor.position_over(bounds) {
                 Some(point) => {
                     slide.holding = true;
-                    Gesture::Moved(fraction(bounds, point.x, cap))
+                    let fraction = fraction(bounds, point.x, cap);
+                    slide.snap(fraction);
+                    Gesture::Moved(fraction)
                 }
                 None => Gesture::Idle,
             }
@@ -103,7 +127,9 @@ pub fn track(
             if slide.holding {
                 match cursor.position() {
                     Some(point) => {
-                        Gesture::Moved(fraction(bounds, point.x, cap))
+                        let fraction = fraction(bounds, point.x, cap);
+                        slide.snap(fraction);
+                        Gesture::Moved(fraction)
                     }
                     None => Gesture::Idle,
                 }

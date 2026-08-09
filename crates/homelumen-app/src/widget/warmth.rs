@@ -18,7 +18,7 @@ use crate::design::{Skin, tone};
 use crate::paint;
 use crate::widget::track::{self, Gesture, Slide};
 
-/// Height of the band.
+/// Height of the band at its most spacious.
 pub const HEIGHT: f32 = 116.0;
 
 const KNOB_WIDTH: f32 = 14.0;
@@ -30,6 +30,7 @@ pub struct Warmth<'a, Message> {
     warmest: f32,
     coolest: f32,
     skin: Skin,
+    height: f32,
     on_change: Box<dyn Fn(f32) -> Message + 'a>,
 }
 
@@ -48,8 +49,15 @@ impl<'a, Message> Warmth<'a, Message> {
             warmest: f32::from(warmest),
             coolest: f32::from(coolest),
             skin,
+            height: HEIGHT,
             on_change: Box::new(on_change),
         }
+    }
+
+    /// Overrides the control's height, so it can shrink on a tight window.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = height;
+        self
     }
 
     fn shade(&self, fraction: f32) -> Color {
@@ -70,7 +78,7 @@ where
     }
 
     fn size(&self) -> Size<Length> {
-        Size::new(Length::Fill, Length::Fixed(HEIGHT))
+        Size::new(Length::Fill, Length::Fixed(self.height))
     }
 
     fn layout(
@@ -79,7 +87,7 @@ where
         _renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        layout::atomic(limits, Length::Fill, Length::Fixed(HEIGHT))
+        layout::atomic(limits, Length::Fill, Length::Fixed(self.height))
     }
 
     fn update(
@@ -137,7 +145,7 @@ where
         let slide = tree.state.downcast_ref::<Slide>();
         let skin = self.skin;
         let bounds = layout.bounds();
-        let radius = HEIGHT / 2.0;
+        let radius = self.height / 2.0;
         let attention = slide.attention();
         let shown = slide.shown();
 

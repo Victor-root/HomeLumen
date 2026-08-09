@@ -17,7 +17,7 @@ use iced::{
 use crate::design::{Skin, motion, round, tone, typo};
 use crate::paint::{self, Anchor};
 
-/// Height of the control.
+/// Height of the control at its most spacious.
 pub const HEIGHT: f32 = 46.0;
 
 const SEGMENT: f32 = 132.0;
@@ -28,6 +28,7 @@ pub struct Segmented<'a, Message> {
     labels: Vec<&'a str>,
     active: usize,
     skin: Skin,
+    height: f32,
     on_select: Box<dyn Fn(usize) -> Message + 'a>,
 }
 
@@ -39,7 +40,19 @@ impl<'a, Message> Segmented<'a, Message> {
         skin: Skin,
         on_select: impl Fn(usize) -> Message + 'a,
     ) -> Self {
-        Self { labels, active, skin, on_select: Box::new(on_select) }
+        Self {
+            labels,
+            active,
+            skin,
+            height: HEIGHT,
+            on_select: Box::new(on_select),
+        }
+    }
+
+    /// Overrides the control's height, so it can shrink on a tight window.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = height;
+        self
     }
 
     fn width(&self) -> f32 {
@@ -80,7 +93,7 @@ where
     }
 
     fn size(&self) -> Size<Length> {
-        Size::new(Length::Fixed(self.width()), Length::Fixed(HEIGHT))
+        Size::new(Length::Fixed(self.width()), Length::Fixed(self.height))
     }
 
     fn layout(
@@ -92,7 +105,7 @@ where
         layout::atomic(
             limits,
             Length::Fixed(self.width()),
-            Length::Fixed(HEIGHT),
+            Length::Fixed(self.height),
         )
     }
 
@@ -183,7 +196,7 @@ where
             x: bounds.x + INSET + position * SEGMENT,
             y: bounds.y + INSET,
             width: SEGMENT,
-            height: HEIGHT - INSET * 2.0,
+            height: self.height - INSET * 2.0,
         };
 
         paint::lift(

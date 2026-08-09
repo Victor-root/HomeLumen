@@ -18,8 +18,8 @@ use crate::design::{Skin, tone, typo};
 use crate::paint::{self, Anchor};
 use crate::widget::track::{self, Gesture, Slide};
 
-/// Height of the capsule. Deliberately generous: this is the control the hand
-/// reaches for first.
+/// Height of the capsule at its most spacious. Deliberately generous: this
+/// is the control the hand reaches for first.
 pub const HEIGHT: f32 = 116.0;
 
 const PAD: f32 = 30.0;
@@ -30,6 +30,7 @@ pub struct Level<'a, Message> {
     glow: Color,
     skin: Skin,
     enabled: bool,
+    height: f32,
     on_change: Box<dyn Fn(f32) -> Message + 'a>,
 }
 
@@ -46,6 +47,7 @@ impl<'a, Message> Level<'a, Message> {
             glow,
             skin,
             enabled: true,
+            height: HEIGHT,
             on_change: Box::new(on_change),
         }
     }
@@ -53,6 +55,12 @@ impl<'a, Message> Level<'a, Message> {
     /// Dims the whole control when the light is off.
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
+        self
+    }
+
+    /// Overrides the control's height, so it can shrink on a tight window.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = height;
         self
     }
 }
@@ -70,7 +78,7 @@ where
     }
 
     fn size(&self) -> Size<Length> {
-        Size::new(Length::Fill, Length::Fixed(HEIGHT))
+        Size::new(Length::Fill, Length::Fixed(self.height))
     }
 
     fn layout(
@@ -79,7 +87,7 @@ where
         _renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        layout::atomic(limits, Length::Fill, Length::Fixed(HEIGHT))
+        layout::atomic(limits, Length::Fill, Length::Fixed(self.height))
     }
 
     fn update(
@@ -95,7 +103,7 @@ where
     ) {
         let bounds = layout.bounds();
         let slide = tree.state.downcast_mut::<Slide>();
-        let cap = HEIGHT / 2.0;
+        let cap = self.height / 2.0;
 
         match track::track(slide, event, bounds, cursor, self.value, cap) {
             Gesture::Moved(fraction) => {
@@ -137,7 +145,7 @@ where
         let slide = tree.state.downcast_ref::<Slide>();
         let skin = self.skin;
         let bounds = layout.bounds();
-        let radius = HEIGHT / 2.0;
+        let radius = self.height / 2.0;
         let attention = slide.attention();
         let shown = slide.shown();
 
