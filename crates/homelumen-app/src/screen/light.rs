@@ -16,7 +16,7 @@ use homelumen_core::{Capabilities, Color as LightColor};
 use homelumen_engine::LightSnapshot;
 use iced::widget::{
     Column, button, center, column, container, responsive, row, scrollable,
-    space,
+    space, stack,
 };
 use iced::{Center, Element, Fill, Length, Padding, Size};
 
@@ -39,19 +39,24 @@ const BREAKPOINT: f32 = 760.0;
 /// Widest the controls get when a light has no advanced panel at all.
 const SOLO: f32 = 560.0;
 
-/// Side of the back button. Small and fixed, and its own row above the
-/// hero rather than sharing it: what the arrow needs to stay tappable, not
-/// what the bulb and the name would need to give up to make room for it.
-/// Deliberately slight, so it reads as a way out rather than a control
-/// competing with the bulb for attention.
-const BACK: f32 = 26.0;
+/// Fixed part of the hero's own top offset, left over from when the back
+/// button still sat in the same column, on its own row above the hero. The
+/// button has since moved off to the side, as a floating layer that no
+/// longer takes part in this layout at all, but the hero's position stays
+/// defined by this exact number so that moving the button never moves it.
+const HERO_TOP_RESERVE: f32 = 29.0;
 
-/// Space between the back button and the hero below it. Fixed rather than
-/// density-scaled, and apart from `Density::tight` (which paces the name
-/// against the model line, a different pairing): the button is a fixed
-/// size on its own row, so what separates it from the content it precedes
-/// does not need to breathe with everything else either.
-const CROWN_GAP: f32 = 3.0;
+/// Side of the floating back button. Small and deliberately slight, so it
+/// reads as a way out rather than a control competing with the bulb for
+/// attention.
+const BACK_SIZE: f32 = 20.0;
+
+/// Distance from the window's own corner to the back button, top and left
+/// alike: enough that it reads as tucked into the corner rather than glued
+/// to it, while staying well inside the room `HERO_TOP_RESERVE` already
+/// keeps free above the hero.
+const BACK_TOP: f32 = 6.0;
+const BACK_LEFT: f32 = 7.0;
 
 /// Draws the screen of one light.
 pub fn view(
@@ -85,53 +90,45 @@ pub fn view(
                     .into(),
             };
 
-        // The back button sits in a column of its own, ahead of the body,
-        // rather than inside the body's own padding: `crown` around the
-        // whole column lands the button that close to the window's corner
-        // on both edges it's near, and the body then adds back only the
-        // difference between `crown` and `margin` on its own left, which is
-        // what keeps everything below the button exactly where it always
-        // was.
-        let content = column![
-            back(skin),
+        // The hero sits at the same top offset it always has, `crown` plus
+        // `HERO_TOP_RESERVE`: the back button used to earn that offset by
+        // sitting in its own row just above, but now floats over it as a
+        // layer of its own, so repositioning the button never moves the
+        // hero underneath it.
+        let content = stack![
             container(body)
                 .padding(Padding {
-                    top: 0.0,
+                    top: density.crown + HERO_TOP_RESERVE,
                     right: density.margin,
                     bottom: density.gap,
-                    left: density.margin - density.crown,
+                    left: density.margin,
                 })
                 .width(Fill),
-        ]
-        .spacing(CROWN_GAP)
-        .width(Fill);
-
-        scrollable(
-            container(content)
+            container(back(skin))
                 .padding(Padding {
-                    top: density.crown,
+                    top: BACK_TOP,
                     right: 0.0,
                     bottom: 0.0,
-                    left: density.crown,
+                    left: BACK_LEFT,
                 })
-                .width(Fill),
-        )
-        .height(Fill)
-        .style(style::scroller(skin))
-        .into()
+                .width(Fill)
+                .height(Fill),
+        ]
+        .width(Fill);
+
+        scrollable(content).height(Fill).style(style::scroller(skin)).into()
     });
 
     container(page).width(Fill).height(Fill).style(style::page(skin)).into()
 }
 
-/// The way out: small, and positioned on its own rather than sharing the
-/// hero row's indent, so it can sit closer to the window's own corner than
-/// the content it precedes.
+/// The way out: a small button floating in its own corner of the screen,
+/// entirely apart from the hero's own layout.
 fn back<'a>(skin: Skin) -> Element<'a, Message> {
-    button(glyph(Glyph::Back, skin.ink_soft, 13.0))
-        .width(Length::Fixed(BACK))
-        .height(Length::Fixed(BACK))
-        .padding(6.5)
+    button(glyph(Glyph::Back, skin.ink_soft, 10.0))
+        .width(Length::Fixed(BACK_SIZE))
+        .height(Length::Fixed(BACK_SIZE))
+        .padding(5.0)
         .style(style::quiet(skin))
         .on_press(Message::Back)
         .into()
@@ -357,10 +354,10 @@ mod gap {
     pub const GAP_REF: f32 = crate::design::space::GAP;
     pub const GAP_FLOOR: f32 = 10.0;
 
-    /// Distance from the window's own corner to the back button, on both
-    /// the edges it's near, top and left alike: apart from `MARGIN` (what
-    /// everything else answers to) because a small, discreet button earns a
-    /// much shorter reach than a block of controls does.
+    /// The density-scaled part of the room kept free above the hero, on top
+    /// of the fixed `HERO_TOP_RESERVE`: apart from `MARGIN` (what everything
+    /// else answers to) because that room was always sized for a small,
+    /// discreet button, not a block of controls.
     pub const CROWN_REF: f32 = 3.0;
     pub const CROWN_FLOOR: f32 = 0.0;
 
@@ -472,10 +469,9 @@ impl Density {
     }
 
     fn controls_height(&self, capabilities: &Capabilities) -> f32 {
-        // The back button's own slim row, then the hero: `BACK` and
-        // `CROWN_GAP` are both fixed rather than density-scaled, matching
-        // the button itself.
-        let mut height = BACK + CROWN_GAP + self.hero_height();
+        // `HERO_TOP_RESERVE` is the fixed part of the room kept free above
+        // the hero, unrelated to the floating back button's own size now.
+        let mut height = HERO_TOP_RESERVE + self.hero_height();
 
         if capabilities.power {
             height += self.gap + self.power;
@@ -546,8 +542,9 @@ impl Density {
 
     /// Total width the layout would need, stacked or side by side.
     ///
-    /// The back button sits above the hero now, not inside it, so only the
-    /// bulb and the name's own floor answer for the hero's width. Narrow:
+    /// The back button floats over its own corner, apart from the hero
+    /// entirely, so only the bulb and the name's own floor answer for the
+    /// hero's width. Narrow:
     /// that competes with the colour field's minimum, whichever asks for
     /// more decides, since the two are stacked rather than side by side.
     /// Wide: the aside column's width is counted against the hero too, or a
