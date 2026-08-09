@@ -73,32 +73,6 @@ pub fn quiet(skin: Skin) -> impl Fn(&Theme, button::Status) -> button::Style {
     }
 }
 
-/// A control with no shape at rest at all, only the mark it carries: quieter
-/// than `quiet`, which keeps a hairline circle around itself even at rest.
-/// Reserved for chrome that must stay out of the way until the pointer
-/// actually finds it, like a back arrow tucked into a corner.
-pub fn ghost(skin: Skin) -> impl Fn(&Theme, button::Status) -> button::Style {
-    move |_, status| {
-        let awake =
-            matches!(status, button::Status::Hovered | button::Status::Pressed);
-
-        button::Style {
-            background: Some(Background::Color(if awake {
-                skin.surface_lift
-            } else {
-                tone::fade(skin.surface, 0.0)
-            })),
-            text_color: if awake { skin.ink } else { skin.ink_soft },
-            border: Border {
-                radius: round::FULL.into(),
-                width: if awake { 1.0 } else { 0.0 },
-                color: tone::mix(skin.edge, skin.ink_faint, 0.35),
-            },
-            ..button::Style::default()
-        }
-    }
-}
-
 /// The one button on a screen that carries the action.
 pub fn solid(skin: Skin) -> impl Fn(&Theme, button::Status) -> button::Style {
     move |_, status| {

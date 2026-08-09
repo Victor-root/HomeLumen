@@ -117,15 +117,15 @@ pub fn view(
     container(page).width(Fill).height(Fill).style(style::page(skin)).into()
 }
 
-/// The way out: small, unstyled until the pointer actually finds it, and
-/// positioned on its own rather than sharing the hero row's indent, so it
-/// can sit closer to the window's own corner than the content it precedes.
+/// The way out: small, and positioned on its own rather than sharing the
+/// hero row's indent, so it can sit closer to the window's own corner than
+/// the content it precedes.
 fn back<'a>(skin: Skin) -> Element<'a, Message> {
     button(glyph(Glyph::Back, skin.ink_soft, 13.0))
         .width(Length::Fixed(BACK))
         .height(Length::Fixed(BACK))
         .padding(6.5)
-        .style(style::ghost(skin))
+        .style(style::quiet(skin))
         .on_press(Message::Back)
         .into()
 }
@@ -354,8 +354,8 @@ mod gap {
     /// the edges it's near, top and left alike: apart from `MARGIN` (what
     /// everything else answers to) because a small, discreet button earns a
     /// much shorter reach than a block of controls does.
-    pub const CROWN_REF: f32 = 10.0;
-    pub const CROWN_FLOOR: f32 = 4.0;
+    pub const CROWN_REF: f32 = 6.0;
+    pub const CROWN_FLOOR: f32 = 2.0;
 
     pub const ROOM_REF: f32 = crate::design::space::ROOM;
     pub const ROOM_FLOOR: f32 = 10.0;
