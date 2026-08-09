@@ -44,6 +44,17 @@ l'application. Deux solutions :
 - ou utiliser le bouton **+** de l'en-tête pour saisir l'adresse locale de
   l'ampoule, ce qui emprunte exactement le même pilote.
 
+`cargo build --release` donne un exécutable autonome (police et icône sont
+embarquées dedans), qui marche tel quel sans rien installer. Pour un vrai
+installateur à la place (dossier dans Program Files, raccourcis menu Démarrer
+et bureau, désinstallation depuis Windows) :
+
+1. installer [Inno Setup](https://jrsoftware.org/isdl.php), gratuit ;
+2. double-cliquer sur `packaging\windows\homelumen.iss` (il s'ouvre dans Inno
+   Setup) et cliquer sur **Build → Compile**.
+
+L'installateur sort dans `target\installer\HomeLumen-Setup.exe`.
+
 ### Sous Linux
 
 HomeLumen dessine avec `wgpu` et a donc besoin d'un pilote graphique
