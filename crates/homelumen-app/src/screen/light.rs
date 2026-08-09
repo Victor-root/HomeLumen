@@ -46,6 +46,13 @@ const SOLO: f32 = 560.0;
 /// competing with the bulb for attention.
 const BACK: f32 = 26.0;
 
+/// Space between the back button and the hero below it. Fixed rather than
+/// density-scaled, and apart from `Density::tight` (which paces the name
+/// against the model line, a different pairing): the button is a fixed
+/// size on its own row, so what separates it from the content it precedes
+/// does not need to breathe with everything else either.
+const CROWN_GAP: f32 = 3.0;
+
 /// Draws the screen of one light.
 pub fn view(
     light: &LightSnapshot,
@@ -96,7 +103,7 @@ pub fn view(
                 })
                 .width(Fill),
         ]
-        .spacing(density.tight)
+        .spacing(CROWN_GAP)
         .width(Fill);
 
         scrollable(
@@ -354,8 +361,8 @@ mod gap {
     /// the edges it's near, top and left alike: apart from `MARGIN` (what
     /// everything else answers to) because a small, discreet button earns a
     /// much shorter reach than a block of controls does.
-    pub const CROWN_REF: f32 = 6.0;
-    pub const CROWN_FLOOR: f32 = 2.0;
+    pub const CROWN_REF: f32 = 3.0;
+    pub const CROWN_FLOOR: f32 = 0.0;
 
     pub const ROOM_REF: f32 = crate::design::space::ROOM;
     pub const ROOM_FLOOR: f32 = 10.0;
@@ -465,9 +472,10 @@ impl Density {
     }
 
     fn controls_height(&self, capabilities: &Capabilities) -> f32 {
-        // The back button's own slim row, then the hero: `BACK` is fixed
-        // rather than density-scaled, matching the button itself.
-        let mut height = BACK + self.tight + self.hero_height();
+        // The back button's own slim row, then the hero: `BACK` and
+        // `CROWN_GAP` are both fixed rather than density-scaled, matching
+        // the button itself.
+        let mut height = BACK + CROWN_GAP + self.hero_height();
 
         if capabilities.power {
             height += self.gap + self.power;
