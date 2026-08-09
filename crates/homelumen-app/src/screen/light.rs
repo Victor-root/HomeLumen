@@ -18,7 +18,7 @@ use iced::widget::{
     Column, button, center, column, container, responsive, row, scrollable,
     space,
 };
-use iced::{Center, Element, Fill, Length, Size};
+use iced::{Center, Element, Fill, Length, Padding, Size};
 
 use crate::app::Message;
 use crate::design::{Skin, tone, typo};
@@ -42,7 +42,9 @@ const SOLO: f32 = 560.0;
 /// Side of the back button. Small and fixed, and its own row above the
 /// hero rather than sharing it: what the arrow needs to stay tappable, not
 /// what the bulb and the name would need to give up to make room for it.
-const BACK: f32 = 34.0;
+/// Deliberately slight, so it reads as a way out rather than a control
+/// competing with the bulb for attention.
+const BACK: f32 = 26.0;
 
 /// Draws the screen of one light.
 pub fn view(
@@ -78,9 +80,19 @@ pub fn view(
 
         // One vertical padding, not two: the body's own is already what
         // keeps the page off the top and bottom of the window, and a second
-        // one wrapped around the scrollable only ever added to it.
+        // one wrapped around the scrollable only ever added to it. Top and
+        // bottom differ on purpose: the back button above the hero is
+        // small and wants to sit close to the edge, while the bottom still
+        // answers to `gap`, the same room every other section gets.
         scrollable(
-            container(body).padding([density.gap, density.margin]).width(Fill),
+            container(body)
+                .padding(Padding {
+                    top: density.crown,
+                    right: density.margin,
+                    bottom: density.gap,
+                    left: density.margin,
+                })
+                .width(Fill),
         )
         .height(Fill)
         .style(style::scroller(skin))
@@ -105,11 +117,11 @@ fn controls<'a>(
     let capabilities = &light.descriptor.capabilities;
     let emission = tone::emission(&light.state);
 
-    let back = button(glyph(Glyph::Back, skin.ink_soft, 16.0))
+    let back = button(glyph(Glyph::Back, skin.ink_soft, 13.0))
         .width(Length::Fixed(BACK))
         .height(Length::Fixed(BACK))
-        .padding(9.0)
-        .style(style::quiet(skin))
+        .padding(6.5)
+        .style(style::ghost(skin))
         .on_press(Message::Back);
 
     let identity = bulb(
@@ -322,6 +334,13 @@ mod gap {
     pub const GAP_REF: f32 = crate::design::space::GAP;
     pub const GAP_FLOOR: f32 = 10.0;
 
+    /// Top padding of the whole screen, apart from `GAP` (the bottom, and
+    /// the space between sections): the top only has to clear a small,
+    /// discreet back button, not a block of controls, so it earns a much
+    /// shorter reach before the header starts.
+    pub const CROWN_REF: f32 = 14.0;
+    pub const CROWN_FLOOR: f32 = 6.0;
+
     pub const ROOM_REF: f32 = crate::design::space::ROOM;
     pub const ROOM_FLOOR: f32 = 10.0;
 
@@ -355,6 +374,7 @@ struct Density {
     warmth: f32,
     segment: f32,
     gap: f32,
+    crown: f32,
     room: f32,
     step: f32,
     tight: f32,
@@ -377,6 +397,7 @@ impl Density {
             warmth: lerp(gap::WARMTH_FLOOR, gap::WARMTH_REF),
             segment: lerp(gap::SEGMENT_FLOOR, gap::SEGMENT_REF),
             gap: lerp(gap::GAP_FLOOR, gap::GAP_REF),
+            crown: lerp(gap::CROWN_FLOOR, gap::CROWN_REF),
             room: lerp(gap::ROOM_FLOOR, gap::ROOM_REF),
             step: lerp(gap::STEP_FLOOR, gap::STEP_REF),
             tight: lerp(gap::TIGHT_FLOOR, gap::TIGHT_REF),
@@ -482,7 +503,8 @@ impl Density {
     /// fit, laid out the way `narrow` says. The page's own top and bottom
     /// breathing room is counted in and answers to density like everything
     /// else: a compact window earns that room back rather than holding a
-    /// fixed margin no matter how little space is left.
+    /// fixed margin no matter how little space is left. Top and bottom are
+    /// not the same amount: see `crown`.
     fn needed_height(&self, narrow: bool, capabilities: &Capabilities) -> f32 {
         let controls = self.controls_height(capabilities);
         let panels = self.panels_height(capabilities);
@@ -495,7 +517,7 @@ impl Density {
             controls.max(panels)
         };
 
-        2.0 * self.gap + content
+        self.crown + self.gap + content
     }
 
     /// Total width the layout would need, stacked or side by side.
