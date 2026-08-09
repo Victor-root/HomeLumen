@@ -21,4 +21,4 @@ command -v update-desktop-database > /dev/null &&
 command -v gtk-update-icon-cache > /dev/null &&
     (gtk-update-icon-cache ~/.local/share/icons/hicolor || true)
 
-echo "C'est fait. Cherche « Home Lumen » dans le menu des applications."
+echo "Done. Look for \"Home Lumen\" in your applications menu."
