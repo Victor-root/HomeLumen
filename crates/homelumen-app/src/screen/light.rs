@@ -12,7 +12,7 @@
 //! around it all is a safety net for a capability combination this budget
 //! did not anticipate, not the everyday way of reaching a control.
 
-use homelumen_core::{Capabilities, Color as LightColor};
+use homelumen_core::{Capabilities, Color as LightColor, DeviceKind};
 use homelumen_engine::LightSnapshot;
 use iced::widget::{
     Column, button, center, column, container, responsive, row, scrollable,
@@ -28,6 +28,7 @@ use crate::widget::field::{Field, field};
 use crate::widget::glyph::{Glyph, glyph};
 use crate::widget::level::Level;
 use crate::widget::pages::Pages;
+use crate::widget::plug::{Plug, plug};
 use crate::widget::power::Power;
 use crate::widget::segmented::Segmented;
 use crate::widget::warmth::Warmth;
@@ -157,10 +158,15 @@ fn controls<'a>(
     let capabilities = &light.descriptor.capabilities;
     let emission = tone::emission(&light.state);
 
-    let identity = bulb(
-        Bulb::new(emission, tone::intensity(&light.state), skin),
-        density.orb,
-    );
+    let intensity = tone::intensity(&light.state);
+    let identity = match light.descriptor.kind {
+        DeviceKind::Light => {
+            bulb(Bulb::new(emission, intensity, skin), density.orb)
+        }
+        DeviceKind::Plug => {
+            plug(Plug::new(emission, intensity, skin), density.orb)
+        }
+    };
 
     let name = label(
         &light.descriptor.name,

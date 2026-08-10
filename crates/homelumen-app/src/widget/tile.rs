@@ -6,6 +6,7 @@
 
 use std::f32::consts::PI;
 
+use homelumen_core::DeviceKind;
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::widget::{Widget, tree};
 use iced::advanced::{Clipboard, Renderer as _, Shell, mouse, renderer};
@@ -38,6 +39,7 @@ fn spine(card: Rectangle) -> f32 {
 /// A light, as a tile.
 pub struct Tile<'a, Message> {
     name: &'a str,
+    kind: DeviceKind,
     lit: bool,
     level: f32,
     reading: String,
@@ -60,6 +62,7 @@ impl<'a, Message> Tile<'a, Message> {
     ) -> Self {
         Self {
             name,
+            kind: DeviceKind::Light,
             lit: false,
             level: 1.0,
             reading,
@@ -70,6 +73,12 @@ impl<'a, Message> Tile<'a, Message> {
             on_open,
             on_toggle: None,
         }
+    }
+
+    /// What the device fundamentally is, deciding which icon it draws.
+    pub fn kind(mut self, kind: DeviceKind) -> Self {
+        self.kind = kind;
+        self
     }
 
     /// Whether the light is on, how bright, and in which colour.
@@ -312,7 +321,14 @@ where
             )),
         );
 
-        self.draw_lamp(renderer, card, emission, presence, level);
+        match self.kind {
+            DeviceKind::Light => {
+                self.draw_lamp(renderer, card, emission, presence, level)
+            }
+            DeviceKind::Plug => {
+                self.draw_plug(renderer, card, emission, presence, level)
+            }
+        }
         self.draw_knob(renderer, card, emission, lit, knob_hover);
         self.draw_copy(renderer, card, presence);
         self.draw_level(renderer, card, emission, presence, level);
@@ -403,6 +419,102 @@ impl<Message> Tile<'_, Message> {
                 bounds: Rectangle {
                     x: glass.x - radius * 0.33 - dot,
                     y: glass.y - radius * 0.38 - dot,
+                    width: dot * 2.0,
+                    height: dot * 2.0,
+                },
+                border: Border { radius: dot.into(), ..Border::default() },
+                ..renderer::Quad::default()
+            },
+            Background::Color(tones.highlight),
+        );
+    }
+
+    /// Drawn from the same colour maths as the outlet on the plug's own
+    /// screen (see [`crate::widget::plug`]), so a plug reads the same
+    /// whichever screen is showing it. Same glossy material as
+    /// [`Self::draw_lamp`], shaped as a socket instead of a bulb: the two
+    /// slots are what say "plug" at a glance rather than "light".
+    fn draw_plug(
+        &self,
+        renderer: &mut Renderer,
+        card: Rectangle,
+        emission: Color,
+        presence: f32,
+        level: f32,
+    ) {
+        let radius = LAMP / 2.0;
+        let center = Point::new(card.x + PAD + radius, spine(card));
+        let side = radius * 1.8;
+        let corner = side * 0.22;
+
+        let face = Rectangle {
+            x: center.x - side / 2.0,
+            y: center.y - side / 2.0,
+            width: side,
+            height: side,
+        };
+
+        paint::glow(
+            renderer,
+            face,
+            radius,
+            emission,
+            0.55 * presence,
+            18.0 + 22.0 * level * presence,
+        );
+
+        let tones = bulb::tones(self.skin, emission, presence);
+
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: face,
+                border: Border {
+                    radius: corner.into(),
+                    width: 1.0,
+                    color: tones.stroke,
+                },
+                ..renderer::Quad::default()
+            },
+            Background::Gradient(iced::Gradient::Linear(
+                gradient::Linear::new(Radians(PI))
+                    .add_stop(0.0, tones.top)
+                    .add_stop(1.0, tones.bottom),
+            )),
+        );
+
+        let slot_width = side * 0.10;
+        let slot_height = side * 0.30;
+        let slot_gap = side * 0.18;
+        let slot_top = center.y - slot_height / 2.0 - side * 0.06;
+
+        for slot_x in
+            [center.x - slot_gap / 2.0 - slot_width, center.x + slot_gap / 2.0]
+        {
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: Rectangle {
+                        x: slot_x,
+                        y: slot_top,
+                        width: slot_width,
+                        height: slot_height,
+                    },
+                    border: Border {
+                        radius: (slot_width / 2.0).into(),
+                        ..Border::default()
+                    },
+                    ..renderer::Quad::default()
+                },
+                Background::Color(tones.metal),
+            );
+        }
+
+        // A single specular highlight is what turns a flat face into glass.
+        let dot = radius * 0.26;
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: center.x - radius * 0.33 - dot,
+                    y: center.y - radius * 0.38 - dot,
                     width: dot * 2.0,
                     height: dot * 2.0,
                 },

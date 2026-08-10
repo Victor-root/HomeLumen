@@ -182,6 +182,7 @@ fn grid<'a>(
             lang,
             Message::Open(device.clone()),
         )
+        .kind(light.descriptor.kind)
         .light(light.state.power, level, tone::emission(&light.state))
         .online(light.online);
 

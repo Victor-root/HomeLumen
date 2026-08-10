@@ -10,6 +10,7 @@ pub mod glyph;
 pub mod level;
 pub mod mark;
 pub mod pages;
+pub mod plug;
 pub mod power;
 pub mod segmented;
 pub mod tile;
