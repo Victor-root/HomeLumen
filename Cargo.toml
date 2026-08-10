@@ -16,12 +16,16 @@ homelumen-kasa = { path = "crates/homelumen-kasa", version = "0.1.0" }
 homelumen-tuya = { path = "crates/homelumen-tuya", version = "0.1.0" }
 homelumen-engine = { path = "crates/homelumen-engine", version = "0.1.0" }
 
+aes = "0.8"
 async-trait = "0.1"
+crc32fast = "1"
 dirs = "6"
+ecb = "0.1"
 futures = "0.3"
 hex = "0.4"
 hmac = "0.12"
 log = "0.4"
+md-5 = "0.10"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

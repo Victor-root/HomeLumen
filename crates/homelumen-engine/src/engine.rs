@@ -136,6 +136,7 @@ fn drivers() -> Vec<Arc<dyn Provider>> {
     vec![
         Arc::new(homelumen_kasa::LanProvider),
         Arc::new(homelumen_tuya::CloudProvider::default()),
+        Arc::new(homelumen_tuya::LanProvider::default()),
     ]
 }
 

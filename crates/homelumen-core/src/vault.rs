@@ -1,19 +1,25 @@
-//! Where HomeLumen keeps the accounts a user typed, between runs.
+//! Where HomeLumen keeps, between runs, what it has learned about reaching a
+//! device.
 //!
-//! Only a driver reaching a manufacturer's own service needs one: a bulb
-//! answering on the local network has no account behind it. Entries are
-//! filed under a driver's slug, so nothing here has to know which
-//! manufacturers exist.
+//! An [`Account`] is what a user typed, filed under a driver's slug. A device
+//! secret is never typed: a driver reads it once from wherever the
+//! manufacturer keeps it and files it under the device's own identity, so a
+//! local route that needs it keeps working even when that source, typically
+//! a cloud account, is not reachable again.
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use crate::device::DeviceId;
+
 const FOLDER: &str = "HomeLumen";
-const FILE: &str = "accounts.json";
+const ACCOUNTS_FILE: &str = "accounts.json";
+const DEVICE_SECRETS_FILE: &str = "device-secrets.json";
 
 /// What a driver shows a manufacturer's service to speak for the user.
 ///
@@ -38,33 +44,55 @@ impl Account {
 
 /// The account filed under `driver`, if a complete one was ever given.
 pub fn account(driver: &str) -> Option<Account> {
-    stored().remove(driver).filter(Account::is_complete)
+    let mut accounts: BTreeMap<String, Account> = read_json(ACCOUNTS_FILE);
+    accounts.remove(driver).filter(Account::is_complete)
 }
 
 /// Files `account` under `driver`, replacing whatever was there.
 pub fn set_account(driver: &str, account: Account) -> io::Result<()> {
-    let mut accounts = stored();
+    let mut accounts: BTreeMap<String, Account> = read_json(ACCOUNTS_FILE);
     accounts.insert(driver.to_owned(), account);
-    write(&accounts)
+    write_json(ACCOUNTS_FILE, &accounts)
 }
 
-/// Everything on file. A missing or unreadable file simply means nothing has
-/// been given yet: there is no failure to report to someone who has not got
-/// round to filling this in.
-fn stored() -> BTreeMap<String, Account> {
-    let Some(path) = path() else {
-        return BTreeMap::new();
+/// The secret cached for `id`, if a driver has ever learned one.
+pub fn device_secret(id: &DeviceId) -> Option<String> {
+    let mut secrets: BTreeMap<String, String> = read_json(DEVICE_SECRETS_FILE);
+    secrets.remove(id.as_str()).filter(|secret| !secret.trim().is_empty())
+}
+
+/// Caches `secret` for `id`, replacing whatever was cached for it.
+pub fn set_device_secret(id: &DeviceId, secret: &str) -> io::Result<()> {
+    let mut secrets: BTreeMap<String, String> = read_json(DEVICE_SECRETS_FILE);
+    secrets.insert(id.as_str().to_owned(), secret.to_owned());
+    write_json(DEVICE_SECRETS_FILE, &secrets)
+}
+
+/// Forgets whatever secret was cached for `id`, so the next attempt to reach
+/// it starts from scratch instead of trusting a value that just proved wrong.
+pub fn forget_device_secret(id: &DeviceId) -> io::Result<()> {
+    let mut secrets: BTreeMap<String, String> = read_json(DEVICE_SECRETS_FILE);
+    secrets.remove(id.as_str());
+    write_json(DEVICE_SECRETS_FILE, &secrets)
+}
+
+/// Reads `file` from the configuration folder. A missing or unreadable file
+/// simply means nothing has been filed yet: there is no failure to report to
+/// someone who has not got round to filling this in.
+fn read_json<T: Default + DeserializeOwned>(file: &str) -> T {
+    let Some(path) = path(file) else {
+        return T::default();
     };
 
     let Ok(body) = fs::read(path) else {
-        return BTreeMap::new();
+        return T::default();
     };
 
     serde_json::from_slice(&body).unwrap_or_default()
 }
 
-fn write(accounts: &BTreeMap<String, Account>) -> io::Result<()> {
-    let path = path().ok_or_else(|| {
+fn write_json<T: Serialize>(file: &str, value: &T) -> io::Result<()> {
+    let path = path(file).ok_or_else(|| {
         io::Error::other("aucun dossier de configuration sur cette machine")
     })?;
 
@@ -72,13 +100,13 @@ fn write(accounts: &BTreeMap<String, Account>) -> io::Result<()> {
         fs::create_dir_all(parent)?;
     }
 
-    let body = serde_json::to_vec_pretty(accounts).map_err(io::Error::other)?;
+    let body = serde_json::to_vec_pretty(value).map_err(io::Error::other)?;
     fs::write(&path, body)?;
     restrict(&path)
 }
 
-fn path() -> Option<PathBuf> {
-    dirs::config_dir().map(|dir| dir.join(FOLDER).join(FILE))
+fn path(file: &str) -> Option<PathBuf> {
+    dirs::config_dir().map(|dir| dir.join(FOLDER).join(file))
 }
 
 /// Keeps the file to whoever owns it: a secret every account on the machine

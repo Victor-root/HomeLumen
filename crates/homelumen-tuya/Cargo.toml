@@ -11,13 +11,17 @@ authors.workspace = true
 [dependencies]
 homelumen-core.workspace = true
 
+aes.workspace = true
 async-trait.workspace = true
+crc32fast.workspace = true
+ecb.workspace = true
 hex.workspace = true
 hmac.workspace = true
 log.workspace = true
+md-5.workspace = true
 reqwest.workspace = true
 serde = { workspace = true }
 serde_json.workspace = true
 sha2.workspace = true
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["sync", "net", "io-util", "time", "macros"] }
 uuid.workspace = true

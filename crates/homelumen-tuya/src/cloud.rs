@@ -1,22 +1,21 @@
 //! Tuya plugs, reached through the manufacturer's own cloud.
 //!
-//! There is no local route here, only [`Transport::Cloud`]: a plug found
-//! this way works from anywhere, at the cost of needing Tuya's servers to be
-//! reachable at all. Local control is a separate driver, for later.
+//! [`Transport::Cloud`]: a plug found this way works from anywhere, at the
+//! cost of needing Tuya's servers to be reachable. [`crate::lan::LanProvider`]
+//! is the other route, straight to the device on the local network.
 
 use std::io;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use homelumen_core::{
-    Account, Command, Discovered, DiscoverySink, Endpoint, Error, LightState,
+    Account, Command, Discovered, DiscoverySink, Endpoint, LightState,
     Provider, Result, Transport, vault,
 };
 use reqwest::Method;
-use tokio::sync::Mutex;
 
-use crate::protocol::{self, DRIVER};
-use crate::wire::{DataCenter, Session};
+use crate::wire::{Session, SessionCache};
+use crate::{DRIVER, protocol};
 
 /// The Tuya cloud project HomeLumen has been given, if any.
 ///
@@ -38,34 +37,43 @@ pub fn set_account(id: &str, secret: &str) -> io::Result<()> {
     )
 }
 
+/// Every device linked to this project's Smart Life account, across as many
+/// pages as it takes. Shared with [`crate::lan`], which needs the same
+/// listing to learn each device's local key.
+pub(crate) async fn all_devices(
+    session: &Session,
+) -> Result<Vec<protocol::TuyaDevice>> {
+    let mut devices = Vec::new();
+    let mut last_row_key: Option<String> = None;
+
+    loop {
+        let query = match &last_row_key {
+            Some(key) => format!(
+                "/v1.0/iot-01/associated-users/devices?size=50&last_row_key={key}"
+            ),
+            None => "/v1.0/iot-01/associated-users/devices?size=50".to_owned(),
+        };
+
+        let page: protocol::AssociatedDevicesPage =
+            session.call_as_app(Method::GET, &query, b"").await?;
+
+        let has_more = page.has_more;
+        let next_row_key = page.last_row_key.clone();
+        devices.extend(page.into_devices());
+
+        if !has_more || next_row_key.is_empty() {
+            break;
+        }
+        last_row_key = Some(next_row_key);
+    }
+
+    Ok(devices)
+}
+
 /// Finds the Tuya plugs the user's Smart Life account has been linked to.
 #[derive(Default)]
 pub struct CloudProvider {
-    /// The session in use, next to the account it was built for, so a token
-    /// survives from one sweep to the next but a change of account is
-    /// noticed at once.
-    session: Mutex<Option<(Account, Session)>>,
-}
-
-impl CloudProvider {
-    async fn session(&self) -> Result<Session> {
-        let account = account().ok_or_else(|| {
-            Error::Unauthorized("aucun compte Tuya renseigné".into())
-        })?;
-
-        let mut cached = self.session.lock().await;
-
-        if let Some((known, session)) = cached.as_ref()
-            && *known == account
-        {
-            return Ok(session.clone());
-        }
-
-        let session = Session::new(DataCenter::EUROPE, account.clone());
-        *cached = Some((account, session.clone()));
-
-        Ok(session)
-    }
+    sessions: SessionCache,
 }
 
 #[async_trait]
@@ -79,50 +87,27 @@ impl Provider for CloudProvider {
     }
 
     async fn discover(&self, sink: DiscoverySink) -> Result<()> {
-        let session = self.session().await?;
-        let mut last_row_key: Option<String> = None;
+        let session = self.sessions.get().await?;
 
-        loop {
-            let query = match &last_row_key {
-                Some(key) => format!(
-                    "/v1.0/iot-01/associated-users/devices?size=50&last_row_key={key}"
-                ),
-                None => {
-                    "/v1.0/iot-01/associated-users/devices?size=50".to_owned()
-                }
+        for device in all_devices(&session).await? {
+            let Some(switch_code) = device.switch_code() else {
+                continue;
+            };
+            let switch_code = switch_code.to_owned();
+
+            let found = Discovered {
+                descriptor: device.to_descriptor(),
+                state: device.to_light_state(),
+                endpoint: Arc::new(CloudEndpoint {
+                    session: session.clone(),
+                    device_id: device.id,
+                    switch_code,
+                }),
             };
 
-            let page: protocol::AssociatedDevicesPage =
-                session.call_as_app(Method::GET, &query, b"").await?;
-
-            let has_more = page.has_more;
-            let next_row_key = page.last_row_key.clone();
-
-            for device in page.into_devices() {
-                let Some(switch_code) = device.switch_code() else {
-                    continue;
-                };
-                let switch_code = switch_code.to_owned();
-
-                let found = Discovered {
-                    descriptor: device.to_descriptor(),
-                    state: device.to_light_state(),
-                    endpoint: Arc::new(CloudEndpoint {
-                        session: session.clone(),
-                        device_id: device.id,
-                        switch_code,
-                    }),
-                };
-
-                if sink.send(found).await.is_err() {
-                    return Ok(());
-                }
-            }
-
-            if !has_more || next_row_key.is_empty() {
+            if sink.send(found).await.is_err() {
                 break;
             }
-            last_row_key = Some(next_row_key);
         }
 
         Ok(())

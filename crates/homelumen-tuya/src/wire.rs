@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use homelumen_core::{Account, Error, Result};
+use homelumen_core::{Account, Error, Result, vault};
 use reqwest::{Method, RequestBuilder};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -186,6 +186,38 @@ impl Session {
         }
 
         request
+    }
+}
+
+/// Caches the [`Session`] built for the account on file, rebuilding it only
+/// when the account changes, so a settings-screen save takes effect on the
+/// very next call rather than needing a restart.
+///
+/// [`crate::cloud::CloudProvider`] and [`crate::lan::LanProvider`] each keep
+/// their own: the caching is the logic worth sharing, not the cached value
+/// itself, and nothing here assumes there is only ever one.
+#[derive(Default)]
+pub struct SessionCache(Mutex<Option<(Account, Session)>>);
+
+impl SessionCache {
+    /// The session for whatever Tuya account is currently on file.
+    pub async fn get(&self) -> Result<Session> {
+        let account = vault::account(crate::DRIVER).ok_or_else(|| {
+            Error::Unauthorized("aucun compte Tuya renseigné".into())
+        })?;
+
+        let mut cached = self.0.lock().await;
+
+        if let Some((known, session)) = cached.as_ref()
+            && *known == account
+        {
+            return Ok(session.clone());
+        }
+
+        let session = Session::new(DataCenter::EUROPE, account.clone());
+        *cached = Some((account, session.clone()));
+
+        Ok(session)
     }
 }
 

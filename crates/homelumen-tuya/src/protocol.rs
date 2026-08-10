@@ -8,11 +8,7 @@ use homelumen_core::{
 use serde::Deserialize;
 use serde_json::json;
 
-/// Slug used to namespace the device identifiers this driver mints.
-pub const DRIVER: &str = "tuya";
-
-/// Manufacturer name, for display.
-pub const VENDOR: &str = "Tuya";
+use crate::{DRIVER, VENDOR};
 
 /// The DPS codes a single-socket smart plug is switched through. Tuya's own
 /// examples disagree with each other: a plain switch category device answers
@@ -63,6 +59,11 @@ pub struct TuyaDevice {
     pub product_name: String,
     #[serde(default)]
     pub status: Vec<DeviceStatus>,
+    /// This device's own AES key for [`crate::lan`], if the response carries
+    /// one. Absent from a single-device lookup by id, present on the
+    /// listings [`crate::cloud::all_devices`] fetches.
+    #[serde(default)]
+    pub local_key: String,
 }
 
 /// One `{code, value}` pair of a device's reported state. `value`'s shape

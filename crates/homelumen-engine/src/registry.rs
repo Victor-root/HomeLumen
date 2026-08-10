@@ -36,6 +36,13 @@ impl Registry {
                     device.descriptor.name = found.descriptor.name;
                 }
 
+                // A route with no better information of its own, such as a
+                // local broadcast that carries no product name, must not
+                // blank out a nicer one another route already supplied.
+                if !found.descriptor.model.trim().is_empty() {
+                    device.descriptor.model = found.descriptor.model;
+                }
+
                 // Not `device.state = found.state`: a sweep's answer can be
                 // in flight for up to `SWEEP_WINDOW`, long enough for a
                 // command issued mid-sweep to anticipate and settle before
