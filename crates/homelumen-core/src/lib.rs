@@ -18,7 +18,7 @@ pub use capability::{
     BrightnessRange, Capabilities, ColorTemperatureRange, Effect,
 };
 pub use command::Command;
-pub use device::{DeviceDescriptor, DeviceId};
+pub use device::{DeviceDescriptor, DeviceId, DeviceKind};
 pub use error::{Error, Result};
 pub use light::{Color, LightState};
 pub use provider::{Discovered, DiscoverySink, Endpoint, Provider};

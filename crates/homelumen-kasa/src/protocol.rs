@@ -3,7 +3,7 @@
 
 use homelumen_core::{
     BrightnessRange, Capabilities, Color, ColorTemperatureRange, Command,
-    DeviceDescriptor, DeviceId, Error, LightState, Result,
+    DeviceDescriptor, DeviceId, DeviceKind, Error, LightState, Result,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -165,6 +165,9 @@ impl SysInfo {
 
         Ok(DeviceDescriptor {
             id: DeviceId::new(DRIVER, hardware_id),
+            // This driver only ever keeps what `is_light` accepted; see
+            // `LanProvider::discover` and `::probe`.
+            kind: DeviceKind::Light,
             name,
             vendor: VENDOR.to_owned(),
             model: reference.to_owned(),

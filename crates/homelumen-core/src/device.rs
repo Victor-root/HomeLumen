@@ -30,11 +30,28 @@ impl fmt::Display for DeviceId {
     }
 }
 
+/// What a device fundamentally is, apart from what it can do.
+///
+/// Not something the interface infers from [`Capabilities`]: a non-dimmable
+/// light and a plug can both report nothing but `power`, and only the driver
+/// that found the device actually knows which one it is. Kept separate so
+/// the interface can group a room by what a device *is* rather than by the
+/// accident of what it happens to support.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeviceKind {
+    /// A fixture that emits light.
+    Light,
+    /// A switched outlet, driving whatever is plugged into it.
+    Plug,
+}
+
 /// Who a device is and what it can do.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceDescriptor {
     /// Stable identity of the hardware.
     pub id: DeviceId,
+    /// What the device fundamentally is.
+    pub kind: DeviceKind,
     /// Name chosen by the user, as stored on the device or in the account.
     pub name: String,
     /// Manufacturer, for display only.

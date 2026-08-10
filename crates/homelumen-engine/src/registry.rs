@@ -265,7 +265,7 @@ struct Route {
 mod tests {
     use async_trait::async_trait;
     use homelumen_core::{
-        BrightnessRange, Capabilities, Result, Transport as Kind,
+        BrightnessRange, Capabilities, DeviceKind, Result, Transport as Kind,
     };
 
     use super::*;
@@ -308,6 +308,7 @@ mod tests {
         let id = registry.absorb(Discovered {
             descriptor: DeviceDescriptor {
                 id: DeviceId::new("test", "salon"),
+                kind: DeviceKind::Light,
                 name: "Salon".to_owned(),
                 vendor: "Essai".to_owned(),
                 model: "LB130".to_owned(),
