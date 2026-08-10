@@ -103,6 +103,14 @@ enum Pump {
 enum Signal {
     Request(Request),
     Found(Box<Discovered>),
+    /// A driver could not sweep at all, for want of credentials or of a
+    /// network. Reported only while `visible`, so a person who just asked
+    /// to look learns why nothing showed up, but the heartbeat's own silent
+    /// retries never nag about a driver that stays unconfigured.
+    SweepFailed {
+        provider: &'static str,
+        error: Error,
+    },
     SweepFinished,
     /// A round trip came back.
     Outcome {
@@ -192,6 +200,17 @@ async fn drive(
             Signal::Found(found) => {
                 let device = registry.absorb(*found);
                 announce(&registry, &events, &device);
+            }
+
+            Signal::SweepFailed { provider, error } => {
+                if visible {
+                    let _ = events.send(Event::Failed {
+                        device: None,
+                        message: format!("{provider}: {error}"),
+                    });
+                } else {
+                    log::warn!("{provider}: {error}");
+                }
             }
 
             Signal::SweepFinished => {
@@ -319,9 +338,13 @@ async fn sweep(
 
     for provider in providers {
         let sink = sink.clone();
+        let signals = signals.clone();
         running.push(tokio::spawn(async move {
             if let Err(error) = provider.discover(sink).await {
-                log::warn!("{}: {error}", provider.name());
+                let _ = signals.send(Signal::SweepFailed {
+                    provider: provider.name(),
+                    error,
+                });
             }
         }));
     }
