@@ -80,14 +80,21 @@ impl Provider for CloudProvider {
 
     async fn discover(&self, sink: DiscoverySink) -> Result<()> {
         let session = self.session().await?;
+        let uid = session.account_uid().await?;
 
-        let result: protocol::DeviceListResult =
-            session.call_as_app(Method::GET, "/v1.0/devices", b"").await?;
+        let devices: Vec<protocol::TuyaDevice> = session
+            .call_as_app(
+                Method::GET,
+                &format!("/v1.0/users/{uid}/devices"),
+                b"",
+            )
+            .await?;
 
-        for device in result.devices {
-            if !device.is_switch() {
+        for device in devices {
+            let Some(switch_code) = device.switch_code() else {
                 continue;
-            }
+            };
+            let switch_code = switch_code.to_owned();
 
             let found = Discovered {
                 descriptor: device.to_descriptor(),
@@ -95,6 +102,7 @@ impl Provider for CloudProvider {
                 endpoint: Arc::new(CloudEndpoint {
                     session: session.clone(),
                     device_id: device.id,
+                    switch_code,
                 }),
             };
 
@@ -114,6 +122,9 @@ impl Provider for CloudProvider {
 struct CloudEndpoint {
     session: Session,
     device_id: String,
+    /// The DPS code this device was found to switch through: Tuya does not
+    /// use the same one for every product, see [`protocol::TuyaDevice::switch_code`].
+    switch_code: String,
 }
 
 #[async_trait]
@@ -140,7 +151,7 @@ impl Endpoint for CloudEndpoint {
     }
 
     async fn apply(&self, commands: &[Command]) -> Result<LightState> {
-        let body = protocol::commands_request(commands)?;
+        let body = protocol::commands_request(commands, &self.switch_code)?;
 
         self.session
             .call_as_app::<bool>(

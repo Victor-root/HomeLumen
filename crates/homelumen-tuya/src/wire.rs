@@ -28,6 +28,10 @@ const TOKEN_MARGIN: Duration = Duration::from_secs(300);
 
 struct CachedToken {
     access_token: String,
+    /// Whose account the token speaks for: not part of authenticating a
+    /// call, but every call that reads or drives that account's own devices
+    /// needs it in the URL.
+    uid: String,
     good_until: Instant,
 }
 
@@ -62,17 +66,24 @@ impl Session {
         path_and_query: &str,
         body: &[u8],
     ) -> Result<T> {
-        let token = self.app_token().await?;
+        let (token, _uid) = self.app_token().await?;
         self.call(method, path_and_query, &token, body).await
     }
 
-    async fn app_token(&self) -> Result<String> {
+    /// The Tuya user id of the Smart Life account linked to this project:
+    /// what every "this account's own devices" call is scoped by.
+    pub async fn account_uid(&self) -> Result<String> {
+        let (_token, uid) = self.app_token().await?;
+        Ok(uid)
+    }
+
+    async fn app_token(&self) -> Result<(String, String)> {
         let mut cached = self.token.lock().await;
 
         if let Some(token) = cached.as_ref()
             && token.good_until > Instant::now()
         {
-            return Ok(token.access_token.clone());
+            return Ok((token.access_token.clone(), token.uid.clone()));
         }
 
         let result: TokenResult = self
@@ -82,14 +93,15 @@ impl Session {
         let good_until = Instant::now()
             + Duration::from_secs(result.expire_time)
                 .saturating_sub(TOKEN_MARGIN);
-        let access_token = result.access_token;
+        let TokenResult { access_token, uid, .. } = result;
 
         *cached = Some(CachedToken {
             access_token: access_token.clone(),
+            uid: uid.clone(),
             good_until,
         });
 
-        Ok(access_token)
+        Ok((access_token, uid))
     }
 
     /// A call signed with the app's own secret alone, before any user token
