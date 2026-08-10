@@ -9,17 +9,24 @@ use iced::{Element, Size, Subscription, Task};
 use crate::design::{Lang, LangPreference, Mode, Preference, Skin};
 use crate::screen;
 
+/// Which screen is in front.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Route {
+    Home,
+    Light(DeviceId),
+    Settings,
+}
+
 /// The whole state of the interface.
 pub struct App {
     engine: Option<Handle>,
     lights: Vec<LightSnapshot>,
-    focus: Option<DeviceId>,
+    route: Route,
     panel: usize,
     preference: Preference,
     system: Mode,
     lang_preference: LangPreference,
     detected_lang: Lang,
-    settings_open: bool,
     scanning: bool,
     notice: Option<String>,
     address: Option<String>,
@@ -31,7 +38,7 @@ impl Default for App {
         Self {
             engine: None,
             lights: Vec::new(),
-            focus: None,
+            route: Route::Home,
             panel: 0,
             preference: Preference::default(),
             // Until the desktop answers, HomeLumen shows the skin it is
@@ -42,7 +49,6 @@ impl Default for App {
             // asked for through a `Task`: the system's locale is already
             // sitting there for the reading, nothing to wait on.
             detected_lang: Lang::detect(),
-            settings_open: false,
             scanning: false,
             notice: None,
             address: None,
@@ -82,8 +88,8 @@ pub enum Message {
     AddressTyped(String),
     /// Reach the typed address.
     AddressSubmit,
-    /// Open or close the settings menu.
-    SettingsToggle,
+    /// Open the settings screen.
+    OpenSettings,
     /// Set the language preference.
     LangChanged(LangPreference),
     /// Put the last message away.
@@ -170,10 +176,10 @@ impl App {
             }
 
             Message::Open(device) => {
-                self.focus = Some(device);
+                self.route = Route::Light(device);
                 self.panel = 0;
             }
-            Message::Back => self.focus = None,
+            Message::Back => self.route = Route::Home,
 
             Message::Toggle(device) => {
                 if let Some(light) = self.light(&device) {
@@ -230,21 +236,13 @@ impl App {
             Message::AddressToggle => {
                 self.address = match self.address {
                     Some(_) => None,
-                    None => {
-                        self.settings_open = false;
-                        Some(String::new())
-                    }
+                    None => Some(String::new()),
                 };
             }
             Message::AddressTyped(typed) => self.address = Some(typed),
             Message::AddressSubmit => self.reach(),
 
-            Message::SettingsToggle => {
-                self.settings_open = !self.settings_open;
-                if self.settings_open {
-                    self.address = None;
-                }
-            }
+            Message::OpenSettings => self.route = Route::Settings,
             Message::LangChanged(preference) => {
                 self.lang_preference = preference
             }
@@ -261,6 +259,10 @@ impl App {
         let skin = self.skin();
         let lang = self.lang();
 
+        if self.route == Route::Settings {
+            return screen::settings::view(skin, lang, self.lang_preference);
+        }
+
         match self.open_light() {
             Some(light) => screen::light::view(light, self.panel, skin, lang),
             None => screen::home::view(
@@ -268,17 +270,18 @@ impl App {
                 skin,
                 lang,
                 self.preference,
-                self.lang_preference,
                 self.scanning,
                 self.address.as_deref(),
-                self.settings_open,
                 self.notice.as_deref(),
             ),
         }
     }
 
     fn open_light(&self) -> Option<&LightSnapshot> {
-        self.focus.as_ref().and_then(|device| self.light(device))
+        match &self.route {
+            Route::Light(device) => self.light(device),
+            _ => None,
+        }
     }
 
     fn light(&self, device: &DeviceId) -> Option<&LightSnapshot> {

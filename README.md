@@ -19,7 +19,7 @@
 **Une application de bureau pour piloter ses éclairages connectés, écrite
 entièrement en Rust.**
 
-Windows 11 et Linux · Deux écrans, pas plus
+Windows 11 et Linux · Trois écrans, pas plus
 
 </div>
 

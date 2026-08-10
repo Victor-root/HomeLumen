@@ -8,29 +8,23 @@ use iced::widget::{
 use iced::{Center, Element, Fill, Length};
 
 use crate::app::Message;
-use crate::design::{
-    Lang, LangPreference, Preference, Skin, space as gap, tone, typo,
-};
+use crate::design::{Lang, Preference, Skin, space as gap, tone, typo};
 use crate::style::{self, label};
 use crate::widget::glyph::{Glyph, glyph};
 use crate::widget::mark::mark;
-use crate::widget::segmented::Segmented;
 use crate::widget::tile::Tile;
 
 /// Widest a tile is allowed to grow before the grid adds a column.
 const COLUMN: f32 = 372.0;
 
 /// Draws the home screen.
-#[allow(clippy::too_many_arguments)]
 pub fn view<'a>(
     lights: &'a [LightSnapshot],
     skin: Skin,
     lang: Lang,
     preference: Preference,
-    lang_preference: LangPreference,
     scanning: bool,
     address: Option<&'a str>,
-    settings_open: bool,
     notice: Option<&'a str>,
 ) -> Element<'a, Message> {
     let body = if lights.is_empty() {
@@ -46,10 +40,6 @@ pub fn view<'a>(
 
     if let Some(typed) = address {
         page = page.push(inset(address_panel(typed, skin, lang)));
-    }
-
-    if settings_open {
-        page = page.push(inset(settings_panel(skin, lang, lang_preference)));
     }
 
     if let Some(message) = notice {
@@ -97,7 +87,7 @@ fn header_controls<'a>(
             Message::CycleSkin,
             skin,
         ),
-        round(Glyph::Settings, Message::SettingsToggle, skin),
+        round(Glyph::Settings, Message::OpenSettings, skin),
     ]
     .spacing(8)
     .into()
@@ -340,54 +330,6 @@ fn address_panel<'a>(
     .into()
 }
 
-/// Width of one choice in the language picker: narrow enough that all three
-/// still fit inside the panel at HomeLumen's compact window width.
-const LANG_SEGMENT: f32 = 78.0;
-
-fn settings_panel<'a>(
-    skin: Skin,
-    lang: Lang,
-    lang_preference: LangPreference,
-) -> Element<'a, Message> {
-    let active = match lang_preference {
-        LangPreference::Auto => 0,
-        LangPreference::En => 1,
-        LangPreference::Fr => 2,
-    };
-
-    container(
-        column![
-            label(lang.settings(), typo::LEAD, typo::SEMIBOLD, skin.ink),
-            column![
-                label(
-                    lang.language(),
-                    typo::LABEL,
-                    typo::REGULAR,
-                    skin.ink_faint
-                ),
-                Segmented::new(
-                    vec!["Auto", "English", "Français"],
-                    active,
-                    skin,
-                    |index| Message::LangChanged(match index {
-                        1 => LangPreference::En,
-                        2 => LangPreference::Fr,
-                        _ => LangPreference::Auto,
-                    }),
-                )
-                .segment_width(LANG_SEGMENT)
-                .height(38.0),
-            ]
-            .spacing(gap::TIGHT),
-        ]
-        .spacing(gap::STEP),
-    )
-    .padding(gap::ROOM)
-    .width(Fill)
-    .style(style::card(skin))
-    .into()
-}
-
 fn banner<'a>(
     message: &'a str,
     skin: Skin,
@@ -415,7 +357,10 @@ fn banner<'a>(
     .into()
 }
 
-fn round<'a>(
+/// A quiet circular icon button, the shape every header control on HomeLumen
+/// shares: the header's own controls, and the way back from a screen that
+/// isn't the lights.
+pub(crate) fn round<'a>(
     kind: Glyph,
     message: Message,
     skin: Skin,
