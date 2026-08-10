@@ -13,6 +13,7 @@ mod error;
 mod light;
 mod provider;
 mod transport;
+pub mod vault;
 
 pub use capability::{
     BrightnessRange, Capabilities, ColorTemperatureRange, Effect,
@@ -23,3 +24,4 @@ pub use error::{Error, Result};
 pub use light::{Color, LightState};
 pub use provider::{Discovered, DiscoverySink, Endpoint, Provider};
 pub use transport::Transport;
+pub use vault::Account;

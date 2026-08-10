@@ -17,6 +17,7 @@ homelumen-tuya = { path = "crates/homelumen-tuya", version = "0.1.0" }
 homelumen-engine = { path = "crates/homelumen-engine", version = "0.1.0" }
 
 async-trait = "0.1"
+dirs = "6"
 futures = "0.3"
 hex = "0.4"
 hmac = "0.12"

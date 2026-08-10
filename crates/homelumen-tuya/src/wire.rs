@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use homelumen_core::{Error, Result};
+use homelumen_core::{Account, Error, Result};
 use reqwest::{Method, RequestBuilder};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -40,29 +40,18 @@ struct CachedToken {
 pub struct Session {
     http: reqwest::Client,
     center: DataCenter,
-    client_id: &'static str,
-    secret: &'static str,
+    account: Account,
     token: Arc<Mutex<Option<CachedToken>>>,
 }
 
 impl Session {
-    pub fn new(
-        center: DataCenter,
-        client_id: &'static str,
-        secret: &'static str,
-    ) -> Self {
+    pub fn new(center: DataCenter, account: Account) -> Self {
         Self {
             http: reqwest::Client::new(),
             center,
-            client_id,
-            secret,
+            account,
             token: Arc::new(Mutex::new(None)),
         }
-    }
-
-    /// Whether HomeLumen's own Tuya credentials have been filled in yet.
-    pub fn is_configured(&self) -> bool {
-        !self.client_id.is_empty() && !self.secret.is_empty()
     }
 
     /// A call made as HomeLumen's own application, fetching and caching the
@@ -118,8 +107,8 @@ impl Session {
             headers: &[],
         };
         let sign = signing::sign_token_request(
-            self.client_id,
-            self.secret,
+            &self.account.id,
+            &self.account.secret,
             t,
             &nonce,
             &signable,
@@ -146,8 +135,8 @@ impl Session {
             headers: &[],
         };
         let sign = signing::sign_request(
-            self.client_id,
-            self.secret,
+            &self.account.id,
+            &self.account.secret,
             access_token,
             t,
             &nonce,
@@ -186,7 +175,7 @@ impl Session {
         let mut request = self
             .http
             .request(method, url)
-            .header("client_id", self.client_id)
+            .header("client_id", &self.account.id)
             .header("sign", sign)
             .header("sign_method", "HMAC-SHA256")
             .header("t", t.to_string())

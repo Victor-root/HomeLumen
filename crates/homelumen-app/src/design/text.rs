@@ -172,10 +172,51 @@ impl Lang {
 
     pub fn tuya_hint(self) -> &'static str {
         match self {
-            Self::En => "Tuya and Smart Life support is on its way.",
-            Self::Fr => {
-                "La prise en charge de Tuya et Smart Life arrive bientôt."
+            Self::En => {
+                "Add your Tuya codes in the settings, and the plugs of your Smart Life account appear here."
             }
+            Self::Fr => {
+                "Ajoutez vos codes Tuya dans les réglages, et les prises de votre compte Smart Life apparaissent ici."
+            }
+        }
+    }
+
+    pub fn open_settings(self) -> &'static str {
+        match self {
+            Self::En => "Open the settings",
+            Self::Fr => "Ouvrir les réglages",
+        }
+    }
+
+    /// Title of the settings section holding the Tuya cloud project. Not
+    /// translated: it is the name of the app the user already has on their
+    /// phone, and renaming it would only make it harder to recognise.
+    pub fn smart_life(self) -> &'static str {
+        "Smart Life"
+    }
+
+    pub fn smart_life_hint(self) -> &'static str {
+        match self {
+            Self::En => {
+                "Tuya gives these two codes out per account. Create a free cloud project on iot.tuya.com, link your Smart Life account to it, then paste its codes here."
+            }
+            Self::Fr => {
+                "Tuya distribue ces deux codes par compte. Créez un projet cloud gratuit sur iot.tuya.com, reliez-y votre compte Smart Life, puis collez ses codes ici."
+            }
+        }
+    }
+
+    pub fn save(self) -> &'static str {
+        match self {
+            Self::En => "Save",
+            Self::Fr => "Enregistrer",
+        }
+    }
+
+    pub fn could_not_save(self, reason: &str) -> String {
+        match self {
+            Self::En => format!("Could not save: {reason}"),
+            Self::Fr => format!("Impossible d'enregistrer : {reason}"),
         }
     }
 

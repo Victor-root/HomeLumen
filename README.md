@@ -7,7 +7,7 @@
 [![Windows](https://img.shields.io/badge/windows-11-0078D6?style=for-the-badge&logo=windows11&logoColor=white)](#sous-windows)
 [![Linux](https://img.shields.io/badge/linux-compatible-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#sous-linux)
 [![Langues](https://img.shields.io/badge/langues-EN%2FFR-F2A63F?style=for-the-badge)](crates/homelumen-app/src/design/text.rs)
-[![Pilote](https://img.shields.io/badge/pilote-TP--Link%20Kasa-F2A63F?style=for-the-badge)](crates/homelumen-kasa)
+[![Pilotes](https://img.shields.io/badge/pilotes-Kasa%20%C2%B7%20Tuya-F2A63F?style=for-the-badge)](crates/)
 
 </div>
 
@@ -16,8 +16,8 @@
 
 # HomeLumen
 
-**Une application de bureau pour piloter ses éclairages connectés, écrite
-entièrement en Rust.**
+**Une application de bureau pour piloter ses éclairages et ses prises
+connectées, écrite entièrement en Rust.**
 
 Windows 11 et Linux · Trois écrans, pas plus
 
@@ -39,6 +39,8 @@ Windows 11 et Linux · Trois écrans, pas plus
 ## ✨ Fonctionnalités
 
 - 🔌 **Pilote TP-Link Kasa** en réseau local (séries LB et KL, dont les LB120 et LB130)
+- 🔗 **Pilote Tuya / Smart Life** pour les prises connectées, via le compte du fabricant
+- 🗂️ **Lumières et prises séparées** en deux onglets, jamais mélangées
 - 📡 **Découverte automatique** par diffusion UDP sur toutes les interfaces, plus ajout manuel par adresse
 - 🎛️ **Contrôles complets** : marche/arrêt, luminosité, couleur, blanc chaud/froid
 - 🌗 **Thème sombre et clair**
@@ -49,10 +51,18 @@ Windows 11 et Linux · Trois écrans, pas plus
 
 ## 🔒 Vie privée
 
-Tout reste sur le réseau local : pas de compte, pas de service en ligne, pas
-de télémétrie. Seule la route locale (`Lan`) est implémentée aujourd'hui, donc
-rien ne sort vers un service du fabricant ou un relais externe pour le moment
-(voir *Une lumière, plusieurs chemins* plus bas).
+Pas de télémétrie, pas de compte HomeLumen, pas de serveur qui nous
+appartienne : l'application ne parle qu'aux appareils et, le cas échéant, au
+fabricant de ceux qui l'exigent.
+
+Les lumières Kasa restent entièrement sur le réseau local (route `Lan`) :
+rien ne sort de chez vous. Les prises Tuya, elles, passent par les serveurs
+de Tuya (route `Cloud`), parce que leur pilotage local demande une clé que
+seul le compte du fabricant délivre. C'est le compromis assumé de cette
+route, et elle ne s'active que si vous avez renseigné vos codes Tuya dans
+les réglages. Ces codes ne quittent jamais votre machine autrement que pour
+signer vos propres requêtes vers Tuya ; ils sont rangés dans un fichier
+lisible par votre seul compte utilisateur.
 
 ---
 
@@ -148,6 +158,7 @@ Quatre crates, du plus général au plus concret.
 ```
 homelumen-core     le modèle générique : capacités, état, commandes, routes
 homelumen-kasa     un pilote : TP-Link Kasa en local
+homelumen-tuya     un pilote : prises Tuya / Smart Life, par le cloud
 homelumen-engine   registre des appareils, choix de route, ordonnancement
 homelumen-app      l'interface
 ```
@@ -183,8 +194,8 @@ foulée. Quand plus aucune ne répond, elles retrouvent toutes leur chance au
 cycle suivant, pour qu'une ampoule revenue sur le réseau redevienne pilotable
 sans redémarrer quoi que ce soit.
 
-Seule la route locale Kasa est implémentée aujourd'hui. Les deux autres sont
-prévues par le modèle, pas simulées.
+`Lan` est empruntée par le pilote Kasa, `Cloud` par le pilote Tuya. `Gateway`
+est prévue par le modèle, pas simulée.
 
 ### Ce que fait le moteur
 

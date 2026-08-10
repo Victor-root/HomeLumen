@@ -280,19 +280,24 @@ fn empty<'a>(
     .spacing(gap::GAP)
     .align_x(Center);
 
-    if tab == DeviceKind::Light {
-        content = content.push(
-            button(label(
-                lang.add_an_address(),
-                typo::BODY,
-                typo::MEDIUM,
-                skin.ink_over_light,
-            ))
-            .padding([14.0, 24.0])
-            .style(style::solid(skin))
-            .on_press(Message::AddressToggle),
-        );
-    }
+    // Each tab's own way out of being empty: a light is added by address,
+    // a plug by giving HomeLumen the account its plugs live in.
+    let (invitation, message) = match tab {
+        DeviceKind::Light => (lang.add_an_address(), Message::AddressToggle),
+        DeviceKind::Plug => (lang.open_settings(), Message::OpenSettings),
+    };
+
+    content = content.push(
+        button(label(
+            invitation,
+            typo::BODY,
+            typo::MEDIUM,
+            skin.ink_over_light,
+        ))
+        .padding([14.0, 24.0])
+        .style(style::solid(skin))
+        .on_press(message),
+    );
 
     center(content).height(Length::Fixed(470.0)).into()
 }

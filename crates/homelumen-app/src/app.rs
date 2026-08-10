@@ -2,7 +2,9 @@
 
 use std::net::IpAddr;
 
-use homelumen_core::{Color as LightColor, Command, DeviceId, DeviceKind};
+use homelumen_core::{
+    Account, Color as LightColor, Command, DeviceId, DeviceKind,
+};
 use homelumen_engine::{self as engine, Handle, LightSnapshot, Request};
 use iced::{Element, Size, Subscription, Task};
 
@@ -28,6 +30,9 @@ pub struct App {
     system: Mode,
     lang_preference: LangPreference,
     detected_lang: Lang,
+    /// The Tuya cloud project as it stands in the settings fields, which is
+    /// only what is on file until the user edits it.
+    tuya: Account,
     scanning: bool,
     notice: Option<String>,
     address: Option<String>,
@@ -51,6 +56,7 @@ impl Default for App {
             // asked for through a `Task`: the system's locale is already
             // sitting there for the reading, nothing to wait on.
             detected_lang: Lang::detect(),
+            tuya: homelumen_tuya::account().unwrap_or_default(),
             scanning: false,
             notice: None,
             address: None,
@@ -96,6 +102,12 @@ pub enum Message {
     OpenSettings,
     /// Set the language preference.
     LangChanged(LangPreference),
+    /// The Tuya client id being typed changed.
+    TuyaIdTyped(String),
+    /// The Tuya secret being typed changed.
+    TuyaSecretTyped(String),
+    /// Keep the typed Tuya project and go looking with it.
+    TuyaSave,
     /// Put the last message away.
     Dismiss,
     /// The window changed size.
@@ -252,6 +264,10 @@ impl App {
                 self.lang_preference = preference
             }
 
+            Message::TuyaIdTyped(typed) => self.tuya.id = typed,
+            Message::TuyaSecretTyped(typed) => self.tuya.secret = typed,
+            Message::TuyaSave => self.keep_tuya(),
+
             Message::Dismiss => self.notice = None,
             Message::WindowSized(size) => self.window_size = size,
         }
@@ -265,7 +281,15 @@ impl App {
         let lang = self.lang();
 
         if self.route == Route::Settings {
-            return screen::settings::view(skin, lang, self.lang_preference);
+            return screen::settings::view(
+                skin,
+                lang,
+                self.lang_preference,
+                screen::settings::TuyaDraft {
+                    id: &self.tuya.id,
+                    secret: &self.tuya.secret,
+                },
+            );
         }
 
         match self.open_light() {
@@ -332,6 +356,29 @@ impl App {
         }
 
         engine.send(Request::Apply { device: device.clone(), commands });
+    }
+
+    /// Files the typed Tuya project and goes looking straight away, so the
+    /// plugs answer for whether the codes were right rather than a message
+    /// saying they were saved.
+    fn keep_tuya(&mut self) {
+        match homelumen_tuya::set_account(&self.tuya.id, &self.tuya.secret) {
+            Ok(()) => {
+                self.tuya.id = self.tuya.id.trim().to_owned();
+                self.tuya.secret = self.tuya.secret.trim().to_owned();
+                self.notice = None;
+                self.route = Route::Home;
+                self.tab = DeviceKind::Plug;
+
+                if let Some(engine) = &self.engine {
+                    engine.send(Request::Scan);
+                }
+            }
+            Err(error) => {
+                self.notice =
+                    Some(self.lang().could_not_save(&error.to_string()));
+            }
+        }
     }
 
     fn reach(&mut self) {

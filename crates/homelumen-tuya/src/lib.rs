@@ -10,4 +10,4 @@ mod protocol;
 mod signing;
 mod wire;
 
-pub use cloud::CloudProvider;
+pub use cloud::{CloudProvider, account, set_account};

@@ -4,36 +4,67 @@
 //! this way works from anywhere, at the cost of needing Tuya's servers to be
 //! reachable at all. Local control is a separate driver, for later.
 
+use std::io;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use homelumen_core::{
-    Command, Discovered, DiscoverySink, Endpoint, Error, LightState, Provider,
-    Result, Transport,
+    Account, Command, Discovered, DiscoverySink, Endpoint, Error, LightState,
+    Provider, Result, Transport, vault,
 };
 use reqwest::Method;
+use tokio::sync::Mutex;
 
 use crate::protocol::{self, DRIVER};
 use crate::wire::{DataCenter, Session};
 
-/// HomeLumen's own Tuya Cloud Project credentials, registered once for the
-/// whole application: no HomeLumen user ever creates a project or types a
-/// secret of their own. Empty until that one-time registration is done, at
-/// which point this driver quietly finds nothing rather than failing to
-/// build.
-const CLIENT_ID: &str = "";
-const CLIENT_SECRET: &str = "";
-
-/// Finds Tuya plugs already linked to HomeLumen's own cloud project.
-pub struct CloudProvider {
-    session: Session,
+/// The Tuya cloud project HomeLumen has been given, if any.
+///
+/// Tuya hands these out per project rather than per application, so they
+/// cannot be shipped inside HomeLumen: each installation is given its own,
+/// once, and this is where they are read back from.
+pub fn account() -> Option<Account> {
+    vault::account(DRIVER)
 }
 
-impl Default for CloudProvider {
-    fn default() -> Self {
-        Self {
-            session: Session::new(DataCenter::EUROPE, CLIENT_ID, CLIENT_SECRET),
+/// Remembers a Tuya cloud project, for this run and every one after it.
+///
+/// Surrounding blanks are dropped: these are pasted from a web page, and a
+/// stray space would only earn a rejected signature and a puzzling error.
+pub fn set_account(id: &str, secret: &str) -> io::Result<()> {
+    vault::set_account(
+        DRIVER,
+        Account { id: id.trim().to_owned(), secret: secret.trim().to_owned() },
+    )
+}
+
+/// Finds the Tuya plugs the user's Smart Life account has been linked to.
+#[derive(Default)]
+pub struct CloudProvider {
+    /// The session in use, next to the account it was built for, so a token
+    /// survives from one sweep to the next but a change of account is
+    /// noticed at once.
+    session: Mutex<Option<(Account, Session)>>,
+}
+
+impl CloudProvider {
+    async fn session(&self) -> Result<Session> {
+        let account = account().ok_or_else(|| {
+            Error::Unauthorized("aucun compte Tuya renseigné".into())
+        })?;
+
+        let mut cached = self.session.lock().await;
+
+        if let Some((known, session)) = cached.as_ref()
+            && *known == account
+        {
+            return Ok(session.clone());
         }
+
+        let session = Session::new(DataCenter::EUROPE, account.clone());
+        *cached = Some((account, session.clone()));
+
+        Ok(session)
     }
 }
 
@@ -48,14 +79,10 @@ impl Provider for CloudProvider {
     }
 
     async fn discover(&self, sink: DiscoverySink) -> Result<()> {
-        if !self.session.is_configured() {
-            return Err(Error::Unauthorized(
-                "identifiants Tuya de l'application non configurés".into(),
-            ));
-        }
+        let session = self.session().await?;
 
         let result: protocol::DeviceListResult =
-            self.session.call_as_app(Method::GET, "/v1.0/devices", b"").await?;
+            session.call_as_app(Method::GET, "/v1.0/devices", b"").await?;
 
         for device in result.devices {
             if !device.is_switch() {
@@ -66,7 +93,7 @@ impl Provider for CloudProvider {
                 descriptor: device.to_descriptor(),
                 state: device.to_light_state(),
                 endpoint: Arc::new(CloudEndpoint {
-                    session: self.session.clone(),
+                    session: session.clone(),
                     device_id: device.id,
                 }),
             };
