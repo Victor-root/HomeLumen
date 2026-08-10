@@ -58,6 +58,17 @@ pub trait Provider: Send + Sync {
     /// Human readable name of the provider.
     fn name(&self) -> &'static str;
 
+    /// Whether this provider has what it needs to be worth sweeping at all.
+    ///
+    /// A provider that speaks through an account the user has not given
+    /// answers `false`: nothing here is broken, there is simply nothing to
+    /// try yet, and a sweep skips it without a word rather than reporting a
+    /// failure for a feature nobody has set up. Providers that need nothing
+    /// to work, such as a LAN broadcast, keep the default.
+    fn is_configured(&self) -> bool {
+        true
+    }
+
     /// Looks for devices and pushes every one it finds into `sink`.
     ///
     /// Returns once the sweep is over. A provider that cannot run right now,

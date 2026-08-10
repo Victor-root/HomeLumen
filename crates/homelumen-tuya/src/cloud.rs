@@ -86,6 +86,10 @@ impl Provider for CloudProvider {
         "Tuya, via le compte Smart Life"
     }
 
+    fn is_configured(&self) -> bool {
+        account().is_some()
+    }
+
     async fn discover(&self, sink: DiscoverySink) -> Result<()> {
         let session = self.sessions.get().await?;
 

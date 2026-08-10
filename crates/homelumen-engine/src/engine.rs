@@ -338,6 +338,10 @@ async fn sweep(
     let mut running = Vec::with_capacity(providers.len());
 
     for provider in providers {
+        if !provider.is_configured() {
+            continue;
+        }
+
         let sink = sink.clone();
         let signals = signals.clone();
         running.push(tokio::spawn(async move {
