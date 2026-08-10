@@ -8,23 +8,29 @@ use iced::widget::{
 use iced::{Center, Element, Fill, Length};
 
 use crate::app::Message;
-use crate::design::{Lang, Preference, Skin, space as gap, tone, typo};
+use crate::design::{
+    Lang, LangPreference, Preference, Skin, space as gap, tone, typo,
+};
 use crate::style::{self, label};
 use crate::widget::glyph::{Glyph, glyph};
 use crate::widget::mark::mark;
+use crate::widget::segmented::Segmented;
 use crate::widget::tile::Tile;
 
 /// Widest a tile is allowed to grow before the grid adds a column.
 const COLUMN: f32 = 372.0;
 
 /// Draws the home screen.
+#[allow(clippy::too_many_arguments)]
 pub fn view<'a>(
     lights: &'a [LightSnapshot],
     skin: Skin,
     lang: Lang,
     preference: Preference,
+    lang_preference: LangPreference,
     scanning: bool,
     address: Option<&'a str>,
+    settings_open: bool,
     notice: Option<&'a str>,
 ) -> Element<'a, Message> {
     let body = if lights.is_empty() {
@@ -40,6 +46,10 @@ pub fn view<'a>(
 
     if let Some(typed) = address {
         page = page.push(inset(address_panel(typed, skin, lang)));
+    }
+
+    if settings_open {
+        page = page.push(inset(settings_panel(skin, lang, lang_preference)));
     }
 
     if let Some(message) = notice {
@@ -87,6 +97,7 @@ fn header_controls<'a>(
             Message::CycleSkin,
             skin,
         ),
+        round(Glyph::Settings, Message::SettingsToggle, skin),
     ]
     .spacing(8)
     .into()
@@ -105,23 +116,24 @@ fn header<'a>(
 ) -> Element<'a, Message> {
     inset(
         responsive(move |available| {
-            let wordmark: Element<'_, Message> =
-                if available.width < HEADER_BREAKPOINT {
-                    mark(27.0)
-                } else {
-                    row![
-                        mark(27.0),
-                        label(
-                            "Home Lumen",
-                            typo::BODY,
-                            typo::MEDIUM,
-                            skin.ink_soft
-                        ),
-                    ]
-                    .spacing(11)
-                    .align_y(Center)
-                    .into()
-                };
+            let wordmark: Element<'_, Message> = if available.width
+                < HEADER_BREAKPOINT
+            {
+                mark(27.0)
+            } else {
+                row![
+                    mark(27.0),
+                    column![
+                        label("Home", typo::BODY, typo::MEDIUM, skin.ink_soft)
+                            .line_height(typo::SNUG_LEADING),
+                        label("Lumen", typo::BODY, typo::MEDIUM, skin.ink_soft)
+                            .line_height(typo::SNUG_LEADING),
+                    ],
+                ]
+                .spacing(11)
+                .align_y(Center)
+                .into()
+            };
 
             row![
                 wordmark,
@@ -322,6 +334,54 @@ fn address_panel<'a>(
             .into()
         }
     }))
+    .padding(gap::ROOM)
+    .width(Fill)
+    .style(style::card(skin))
+    .into()
+}
+
+/// Width of one choice in the language picker: narrow enough that all three
+/// still fit inside the panel at HomeLumen's compact window width.
+const LANG_SEGMENT: f32 = 78.0;
+
+fn settings_panel<'a>(
+    skin: Skin,
+    lang: Lang,
+    lang_preference: LangPreference,
+) -> Element<'a, Message> {
+    let active = match lang_preference {
+        LangPreference::Auto => 0,
+        LangPreference::En => 1,
+        LangPreference::Fr => 2,
+    };
+
+    container(
+        column![
+            label(lang.settings(), typo::LEAD, typo::SEMIBOLD, skin.ink),
+            column![
+                label(
+                    lang.language(),
+                    typo::LABEL,
+                    typo::REGULAR,
+                    skin.ink_faint
+                ),
+                Segmented::new(
+                    vec!["Auto", "English", "Français"],
+                    active,
+                    skin,
+                    |index| Message::LangChanged(match index {
+                        1 => LangPreference::En,
+                        2 => LangPreference::Fr,
+                        _ => LangPreference::Auto,
+                    }),
+                )
+                .segment_width(LANG_SEGMENT)
+                .height(38.0),
+            ]
+            .spacing(gap::TIGHT),
+        ]
+        .spacing(gap::STEP),
+    )
     .padding(gap::ROOM)
     .width(Fill)
     .style(style::card(skin))

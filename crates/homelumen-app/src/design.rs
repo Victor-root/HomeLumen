@@ -7,4 +7,4 @@ pub mod tone;
 pub mod typo;
 
 pub use skin::{Mode, Preference, Skin, round, space};
-pub use text::Lang;
+pub use text::{Lang, LangPreference};

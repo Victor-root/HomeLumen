@@ -29,6 +29,7 @@ pub struct Segmented<'a, Message> {
     active: usize,
     skin: Skin,
     height: f32,
+    segment: f32,
     on_select: Box<dyn Fn(usize) -> Message + 'a>,
 }
 
@@ -45,6 +46,7 @@ impl<'a, Message> Segmented<'a, Message> {
             active,
             skin,
             height: HEIGHT,
+            segment: SEGMENT,
             on_select: Box::new(on_select),
         }
     }
@@ -55,8 +57,15 @@ impl<'a, Message> Segmented<'a, Message> {
         self
     }
 
+    /// Overrides the width of one segment, so a row with more or shorter
+    /// labels does not have to carry the same width as a two-way tab strip.
+    pub fn segment_width(mut self, width: f32) -> Self {
+        self.segment = width;
+        self
+    }
+
     fn width(&self) -> f32 {
-        self.labels.len() as f32 * SEGMENT + INSET * 2.0
+        self.labels.len() as f32 * self.segment + INSET * 2.0
     }
 
     fn segment_at(&self, bounds: Rectangle, x: f32) -> Option<usize> {
@@ -65,7 +74,7 @@ impl<'a, Message> Segmented<'a, Message> {
             return None;
         }
 
-        let index = (local / SEGMENT) as usize;
+        let index = (local / self.segment) as usize;
         (index < self.labels.len()).then_some(index)
     }
 }
@@ -193,9 +202,9 @@ where
         );
 
         let highlight = Rectangle {
-            x: bounds.x + INSET + position * SEGMENT,
+            x: bounds.x + INSET + position * self.segment,
             y: bounds.y + INSET,
-            width: SEGMENT,
+            width: self.segment,
             height: self.height - INSET * 2.0,
         };
 
@@ -230,11 +239,11 @@ where
                 typo::BODY,
                 ink,
                 Point::new(
-                    bounds.x + INSET + SEGMENT * (index as f32 + 0.5),
+                    bounds.x + INSET + self.segment * (index as f32 + 0.5),
                     bounds.center_y(),
                 ),
                 Anchor::Center,
-                SEGMENT,
+                self.segment,
                 bounds,
             );
         }

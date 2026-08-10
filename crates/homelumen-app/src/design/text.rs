@@ -11,6 +11,35 @@ pub enum Lang {
     Fr,
 }
 
+/// Which language the user asked for.
+///
+/// Not the same question as [`Lang`]: "whatever the system is set to" is a
+/// perfectly good answer here, and only becomes one language or the other
+/// once the system has actually been read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LangPreference {
+    /// Follow the system.
+    #[default]
+    Auto,
+    /// English, whatever the system says.
+    En,
+    /// French, whatever the system says.
+    Fr,
+}
+
+impl LangPreference {
+    /// The language to actually speak, given what the system was read as at
+    /// start-up. `detected` is only ever consulted for
+    /// [`LangPreference::Auto`].
+    pub fn resolve(self, detected: Lang) -> Lang {
+        match self {
+            Self::Auto => detected,
+            Self::En => Lang::En,
+            Self::Fr => Lang::Fr,
+        }
+    }
+}
+
 impl Lang {
     /// Reads the system's own locale and answers with the closest language
     /// HomeLumen speaks. English otherwise: a locale HomeLumen does not know
@@ -161,6 +190,20 @@ impl Lang {
         match self {
             Self::En => "Dismiss",
             Self::Fr => "Fermer",
+        }
+    }
+
+    pub fn settings(self) -> &'static str {
+        match self {
+            Self::En => "Settings",
+            Self::Fr => "Paramètres",
+        }
+    }
+
+    pub fn language(self) -> &'static str {
+        match self {
+            Self::En => "Language",
+            Self::Fr => "Langue",
         }
     }
 

@@ -6,7 +6,7 @@ use homelumen_core::{Color as LightColor, Command, DeviceId};
 use homelumen_engine::{self as engine, Handle, LightSnapshot, Request};
 use iced::{Element, Size, Subscription, Task};
 
-use crate::design::{Lang, Mode, Preference, Skin};
+use crate::design::{Lang, LangPreference, Mode, Preference, Skin};
 use crate::screen;
 
 /// The whole state of the interface.
@@ -17,7 +17,9 @@ pub struct App {
     panel: usize,
     preference: Preference,
     system: Mode,
-    lang: Lang,
+    lang_preference: LangPreference,
+    detected_lang: Lang,
+    settings_open: bool,
     scanning: bool,
     notice: Option<String>,
     address: Option<String>,
@@ -35,10 +37,12 @@ impl Default for App {
             // Until the desktop answers, HomeLumen shows the skin it is
             // designed around rather than guessing at the other one.
             system: Mode::Night,
+            lang_preference: LangPreference::default(),
             // Unlike the skin, read once and settled here rather than
             // asked for through a `Task`: the system's locale is already
             // sitting there for the reading, nothing to wait on.
-            lang: Lang::detect(),
+            detected_lang: Lang::detect(),
+            settings_open: false,
             scanning: false,
             notice: None,
             address: None,
@@ -78,6 +82,10 @@ pub enum Message {
     AddressTyped(String),
     /// Reach the typed address.
     AddressSubmit,
+    /// Open or close the settings menu.
+    SettingsToggle,
+    /// Set the language preference.
+    LangChanged(LangPreference),
     /// Put the last message away.
     Dismiss,
     /// The window changed size.
@@ -106,7 +114,7 @@ impl App {
 
     /// The language currently in use.
     pub fn lang(&self) -> Lang {
-        self.lang
+        self.lang_preference.resolve(self.detected_lang)
     }
 
     /// The theme iced needs for the few things HomeLumen does not paint itself.
@@ -222,11 +230,24 @@ impl App {
             Message::AddressToggle => {
                 self.address = match self.address {
                     Some(_) => None,
-                    None => Some(String::new()),
+                    None => {
+                        self.settings_open = false;
+                        Some(String::new())
+                    }
                 };
             }
             Message::AddressTyped(typed) => self.address = Some(typed),
             Message::AddressSubmit => self.reach(),
+
+            Message::SettingsToggle => {
+                self.settings_open = !self.settings_open;
+                if self.settings_open {
+                    self.address = None;
+                }
+            }
+            Message::LangChanged(preference) => {
+                self.lang_preference = preference
+            }
 
             Message::Dismiss => self.notice = None,
             Message::WindowSized(size) => self.window_size = size,
@@ -247,8 +268,10 @@ impl App {
                 skin,
                 lang,
                 self.preference,
+                self.lang_preference,
                 self.scanning,
                 self.address.as_deref(),
+                self.settings_open,
                 self.notice.as_deref(),
             ),
         }
@@ -316,7 +339,7 @@ impl App {
                 self.notice = None;
             }
             Err(_) => {
-                self.notice = Some(self.lang.not_an_ip_address(typed.trim()));
+                self.notice = Some(self.lang().not_an_ip_address(typed.trim()));
             }
         }
     }
