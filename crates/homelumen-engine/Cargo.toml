@@ -11,6 +11,7 @@ authors.workspace = true
 [dependencies]
 homelumen-core.workspace = true
 homelumen-kasa.workspace = true
+homelumen-tuya.workspace = true
 
 futures.workspace = true
 log.workspace = true

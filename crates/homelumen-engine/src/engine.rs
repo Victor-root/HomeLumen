@@ -125,7 +125,10 @@ enum Signal {
 /// Every driver HomeLumen ships with. Adding a manufacturer happens here and
 /// nowhere else.
 fn drivers() -> Vec<Arc<dyn Provider>> {
-    vec![Arc::new(homelumen_kasa::LanProvider)]
+    vec![
+        Arc::new(homelumen_kasa::LanProvider),
+        Arc::new(homelumen_tuya::CloudProvider::default()),
+    ]
 }
 
 async fn drive(
