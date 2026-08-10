@@ -2,7 +2,7 @@
 
 use std::net::IpAddr;
 
-use homelumen_core::{Color as LightColor, Command, DeviceId};
+use homelumen_core::{Color as LightColor, Command, DeviceId, DeviceKind};
 use homelumen_engine::{self as engine, Handle, LightSnapshot, Request};
 use iced::{Element, Size, Subscription, Task};
 
@@ -22,6 +22,7 @@ pub struct App {
     engine: Option<Handle>,
     lights: Vec<LightSnapshot>,
     route: Route,
+    tab: DeviceKind,
     panel: usize,
     preference: Preference,
     system: Mode,
@@ -39,6 +40,7 @@ impl Default for App {
             engine: None,
             lights: Vec::new(),
             route: Route::Home,
+            tab: DeviceKind::Light,
             panel: 0,
             preference: Preference::default(),
             // Until the desktop answers, HomeLumen shows the skin it is
@@ -66,6 +68,8 @@ pub enum Message {
     Open(DeviceId),
     /// Go back to the lights.
     Back,
+    /// Switch between the lights tab and the plugs tab.
+    Tab(DeviceKind),
     /// Switch a light.
     Toggle(DeviceId),
     /// Set the brightness of a light, as `0.0..=1.0`.
@@ -180,6 +184,7 @@ impl App {
                 self.panel = 0;
             }
             Message::Back => self.route = Route::Home,
+            Message::Tab(tab) => self.tab = tab,
 
             Message::Toggle(device) => {
                 if let Some(light) = self.light(&device) {
@@ -270,6 +275,7 @@ impl App {
                 skin,
                 lang,
                 self.preference,
+                self.tab,
                 self.scanning,
                 self.address.as_deref(),
                 self.notice.as_deref(),

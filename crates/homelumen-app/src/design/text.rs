@@ -4,6 +4,8 @@
 //! one it needs, the same way it asks `Skin` for a colour, so adding a
 //! language never means hunting through the screens for what to translate.
 
+use homelumen_core::DeviceKind;
+
 /// A language HomeLumen can speak.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lang {
@@ -54,10 +56,12 @@ impl Lang {
             .unwrap_or(Self::En)
     }
 
-    pub fn my_lights(self) -> &'static str {
-        match self {
-            Self::En => "My lights",
-            Self::Fr => "Mes lumières",
+    pub fn my_devices(self, kind: DeviceKind) -> &'static str {
+        match (self, kind) {
+            (Self::En, DeviceKind::Light) => "My lights",
+            (Self::En, DeviceKind::Plug) => "My plugs",
+            (Self::Fr, DeviceKind::Light) => "Mes lumières",
+            (Self::Fr, DeviceKind::Plug) => "Mes prises",
         }
     }
 
@@ -68,17 +72,21 @@ impl Lang {
         }
     }
 
-    pub fn one_light_on(self) -> &'static str {
-        match self {
-            Self::En => "One light, on",
-            Self::Fr => "Une lumière, allumée",
+    pub fn one_device_on(self, kind: DeviceKind) -> &'static str {
+        match (self, kind) {
+            (Self::En, DeviceKind::Light) => "One light, on",
+            (Self::En, DeviceKind::Plug) => "One plug, on",
+            (Self::Fr, DeviceKind::Light) => "Une lumière, allumée",
+            (Self::Fr, DeviceKind::Plug) => "Une prise, allumée",
         }
     }
 
-    pub fn one_light_off(self) -> &'static str {
-        match self {
-            Self::En => "One light, off",
-            Self::Fr => "Une lumière, éteinte",
+    pub fn one_device_off(self, kind: DeviceKind) -> &'static str {
+        match (self, kind) {
+            (Self::En, DeviceKind::Light) => "One light, off",
+            (Self::En, DeviceKind::Plug) => "One plug, off",
+            (Self::Fr, DeviceKind::Light) => "Une lumière, éteinte",
+            (Self::Fr, DeviceKind::Plug) => "Une prise, éteinte",
         }
     }
 
@@ -133,17 +141,21 @@ impl Lang {
         }
     }
 
-    pub fn searching_for_lights(self) -> &'static str {
-        match self {
-            Self::En => "Searching for lights",
-            Self::Fr => "Recherche des lumières",
+    pub fn searching_for(self, kind: DeviceKind) -> &'static str {
+        match (self, kind) {
+            (Self::En, DeviceKind::Light) => "Searching for lights",
+            (Self::En, DeviceKind::Plug) => "Searching for plugs",
+            (Self::Fr, DeviceKind::Light) => "Recherche des lumières",
+            (Self::Fr, DeviceKind::Plug) => "Recherche des prises",
         }
     }
 
-    pub fn no_lights_yet(self) -> &'static str {
-        match self {
-            Self::En => "No lights yet",
-            Self::Fr => "Aucune lumière pour l'instant",
+    pub fn no_devices_yet(self, kind: DeviceKind) -> &'static str {
+        match (self, kind) {
+            (Self::En, DeviceKind::Light) => "No lights yet",
+            (Self::En, DeviceKind::Plug) => "No plugs yet",
+            (Self::Fr, DeviceKind::Light) => "Aucune lumière pour l'instant",
+            (Self::Fr, DeviceKind::Plug) => "Aucune prise pour l'instant",
         }
     }
 
@@ -155,6 +167,29 @@ impl Lang {
             Self::Fr => {
                 "Home Lumen interroge votre réseau local. Si la diffusion est bloquée, ajoutez une adresse à la main."
             }
+        }
+    }
+
+    pub fn tuya_hint(self) -> &'static str {
+        match self {
+            Self::En => "Tuya and Smart Life support is on its way.",
+            Self::Fr => {
+                "La prise en charge de Tuya et Smart Life arrive bientôt."
+            }
+        }
+    }
+
+    pub fn lights_tab(self) -> &'static str {
+        match self {
+            Self::En => "Lights",
+            Self::Fr => "Lumières",
+        }
+    }
+
+    pub fn plugs_tab(self) -> &'static str {
+        match self {
+            Self::En => "Plugs",
+            Self::Fr => "Prises",
         }
     }
 

@@ -1,5 +1,6 @@
 //! The screen HomeLumen opens on: the lights, and nothing else.
 
+use homelumen_core::DeviceKind;
 use homelumen_engine::LightSnapshot;
 use iced::widget::{
     Column, Grid, button, center, column, container, responsive, row,
@@ -12,31 +13,44 @@ use crate::design::{Lang, Preference, Skin, space as gap, tone, typo};
 use crate::style::{self, label};
 use crate::widget::glyph::{Glyph, glyph};
 use crate::widget::mark::mark;
+use crate::widget::segmented::Segmented;
 use crate::widget::tile::Tile;
+
+/// Width of one segment in the lights/plugs tab strip.
+const TAB_SEGMENT: f32 = 92.0;
 
 /// Widest a tile is allowed to grow before the grid adds a column.
 const COLUMN: f32 = 372.0;
 
 /// Draws the home screen.
+#[allow(clippy::too_many_arguments)]
 pub fn view<'a>(
     lights: &'a [LightSnapshot],
     skin: Skin,
     lang: Lang,
     preference: Preference,
+    tab: DeviceKind,
     scanning: bool,
     address: Option<&'a str>,
     notice: Option<&'a str>,
 ) -> Element<'a, Message> {
-    let body = if lights.is_empty() {
-        empty(skin, lang, scanning)
+    let shown: Vec<&LightSnapshot> =
+        lights.iter().filter(|light| light.descriptor.kind == tab).collect();
+
+    let body = if shown.is_empty() {
+        empty(skin, lang, tab, scanning)
     } else {
-        column![heading(lights, skin, lang, scanning), grid(lights, skin, lang)]
-            .spacing(gap::GAP)
-            .into()
+        column![
+            heading(&shown, skin, lang, tab, scanning),
+            grid(&shown, skin, lang),
+        ]
+        .spacing(gap::GAP)
+        .into()
     };
 
     let mut page = Column::new().spacing(gap::STEP);
     page = page.push(header(skin, preference, scanning));
+    page = page.push(inset(tabs(tab, skin, lang)));
 
     if let Some(typed) = address {
         page = page.push(inset(address_panel(typed, skin, lang)));
@@ -139,18 +153,43 @@ fn header<'a>(
     .into()
 }
 
+/// Switches which kind of device the grid below is showing.
+fn tabs<'a>(tab: DeviceKind, skin: Skin, lang: Lang) -> Element<'a, Message> {
+    let active = match tab {
+        DeviceKind::Light => 0,
+        DeviceKind::Plug => 1,
+    };
+
+    Segmented::new(
+        vec![lang.lights_tab(), lang.plugs_tab()],
+        active,
+        skin,
+        |index| {
+            Message::Tab(if index == 0 {
+                DeviceKind::Light
+            } else {
+                DeviceKind::Plug
+            })
+        },
+    )
+    .segment_width(TAB_SEGMENT)
+    .height(38.0)
+    .into()
+}
+
 fn heading<'a>(
-    lights: &'a [LightSnapshot],
+    lights: &[&LightSnapshot],
     skin: Skin,
     lang: Lang,
+    tab: DeviceKind,
     scanning: bool,
 ) -> Element<'a, Message> {
     let lit = lights.iter().filter(|light| light.state.power).count();
 
     let summary = match (scanning, lit, lights.len()) {
         (true, _, _) => lang.scanning().to_owned(),
-        (_, 1, 1) => lang.one_light_on().to_owned(),
-        (_, 0, 1) => lang.one_light_off().to_owned(),
+        (_, 1, 1) => lang.one_device_on(tab).to_owned(),
+        (_, 0, 1) => lang.one_device_off(tab).to_owned(),
         (_, 0, _) => lang.all_off().to_owned(),
         (_, lit, total) if lit == total => lang.all_on().to_owned(),
         (_, 1, total) => lang.one_of(total),
@@ -158,7 +197,7 @@ fn heading<'a>(
     };
 
     column![
-        label(lang.my_lights(), typo::DISPLAY, typo::SEMIBOLD, skin.ink)
+        label(lang.my_devices(tab), typo::DISPLAY, typo::SEMIBOLD, skin.ink)
             .line_height(typo::SNUG_LEADING),
         label(summary, typo::BODY, typo::REGULAR, skin.ink_soft),
     ]
@@ -167,11 +206,11 @@ fn heading<'a>(
 }
 
 fn grid<'a>(
-    lights: &'a [LightSnapshot],
+    lights: &[&'a LightSnapshot],
     skin: Skin,
     lang: Lang,
 ) -> Element<'a, Message> {
-    Grid::with_children(lights.iter().map(|light| {
+    Grid::with_children(lights.iter().map(|&light| {
         let device = light.descriptor.id.clone();
         let level = f32::from(light.state.brightness.unwrap_or(100)) / 100.0;
 
@@ -210,29 +249,39 @@ fn reading(light: &LightSnapshot, lang: Lang) -> String {
     }
 }
 
-fn empty<'a>(skin: Skin, lang: Lang, scanning: bool) -> Element<'a, Message> {
+fn empty<'a>(
+    skin: Skin,
+    lang: Lang,
+    tab: DeviceKind,
+    scanning: bool,
+) -> Element<'a, Message> {
     let headline = if scanning {
-        lang.searching_for_lights()
+        lang.searching_for(tab)
     } else {
-        lang.no_lights_yet()
+        lang.no_devices_yet(tab)
     };
 
-    center(
+    let hint = match tab {
+        DeviceKind::Light => lang.empty_hint(),
+        DeviceKind::Plug => lang.tuya_hint(),
+    };
+
+    let mut content = column![
+        mark(68.0),
         column![
-            mark(68.0),
-            column![
-                label(headline, typo::TITLE, typo::SEMIBOLD, skin.ink),
-                label(
-                    lang.empty_hint(),
-                    typo::BODY,
-                    typo::REGULAR,
-                    skin.ink_faint,
-                )
+            label(headline, typo::TITLE, typo::SEMIBOLD, skin.ink),
+            label(hint, typo::BODY, typo::REGULAR, skin.ink_faint)
                 .center()
                 .width(Length::Fixed(430.0)),
-            ]
-            .spacing(gap::SNUG)
-            .align_x(Center),
+        ]
+        .spacing(gap::SNUG)
+        .align_x(Center),
+    ]
+    .spacing(gap::GAP)
+    .align_x(Center);
+
+    if tab == DeviceKind::Light {
+        content = content.push(
             button(label(
                 lang.add_an_address(),
                 typo::BODY,
@@ -242,12 +291,10 @@ fn empty<'a>(skin: Skin, lang: Lang, scanning: bool) -> Element<'a, Message> {
             .padding([14.0, 24.0])
             .style(style::solid(skin))
             .on_press(Message::AddressToggle),
-        ]
-        .spacing(gap::GAP)
-        .align_x(Center),
-    )
-    .height(Length::Fixed(470.0))
-    .into()
+        );
+    }
+
+    center(content).height(Length::Fixed(470.0)).into()
 }
 
 /// Below this width the label, field and button no longer fit on one line,
