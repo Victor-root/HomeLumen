@@ -80,35 +80,49 @@ impl Provider for CloudProvider {
 
     async fn discover(&self, sink: DiscoverySink) -> Result<()> {
         let session = self.session().await?;
-        let uid = session.account_uid().await?;
+        let mut last_row_key: Option<String> = None;
 
-        let devices: Vec<protocol::TuyaDevice> = session
-            .call_as_app(
-                Method::GET,
-                &format!("/v1.0/users/{uid}/devices"),
-                b"",
-            )
-            .await?;
-
-        for device in devices {
-            let Some(switch_code) = device.switch_code() else {
-                continue;
-            };
-            let switch_code = switch_code.to_owned();
-
-            let found = Discovered {
-                descriptor: device.to_descriptor(),
-                state: device.to_light_state(),
-                endpoint: Arc::new(CloudEndpoint {
-                    session: session.clone(),
-                    device_id: device.id,
-                    switch_code,
-                }),
+        loop {
+            let query = match &last_row_key {
+                Some(key) => format!(
+                    "/v1.0/iot-01/associated-users/devices?size=50&last_row_key={key}"
+                ),
+                None => {
+                    "/v1.0/iot-01/associated-users/devices?size=50".to_owned()
+                }
             };
 
-            if sink.send(found).await.is_err() {
+            let page: protocol::AssociatedDevicesPage =
+                session.call_as_app(Method::GET, &query, b"").await?;
+
+            let has_more = page.has_more;
+            let next_row_key = page.last_row_key.clone();
+
+            for device in page.into_devices() {
+                let Some(switch_code) = device.switch_code() else {
+                    continue;
+                };
+                let switch_code = switch_code.to_owned();
+
+                let found = Discovered {
+                    descriptor: device.to_descriptor(),
+                    state: device.to_light_state(),
+                    endpoint: Arc::new(CloudEndpoint {
+                        session: session.clone(),
+                        device_id: device.id,
+                        switch_code,
+                    }),
+                };
+
+                if sink.send(found).await.is_err() {
+                    return Ok(());
+                }
+            }
+
+            if !has_more || next_row_key.is_empty() {
                 break;
             }
+            last_row_key = Some(next_row_key);
         }
 
         Ok(())

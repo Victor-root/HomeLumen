@@ -27,8 +27,30 @@ pub struct TokenResult {
     pub access_token: String,
     /// Seconds until the token goes stale.
     pub expire_time: u64,
-    /// Whose account this token speaks for.
-    pub uid: String,
+}
+
+/// One page of `GET /v1.0/iot-01/associated-users/devices`: every device
+/// tied to any account this project has been linked to, since a project set
+/// up through "Link Tuya App Account" is not itself a specific account.
+#[derive(Debug, Default, Deserialize)]
+pub struct AssociatedDevicesPage {
+    // Tuya's own examples disagree on which of these carries the page: both
+    // are accepted, and whichever came back non-empty is used.
+    #[serde(default)]
+    devices: Vec<TuyaDevice>,
+    #[serde(default)]
+    list: Vec<TuyaDevice>,
+    #[serde(default)]
+    pub has_more: bool,
+    #[serde(default)]
+    pub last_row_key: String,
+}
+
+impl AssociatedDevicesPage {
+    /// This page's devices.
+    pub fn into_devices(self) -> Vec<TuyaDevice> {
+        if self.devices.is_empty() { self.list } else { self.devices }
+    }
 }
 
 /// The subset of a device's cloud record HomeLumen cares about.
@@ -124,7 +146,7 @@ pub fn commands_request(
 
 #[cfg(test)]
 mod tests {
-    use super::{TuyaDevice, commands_request};
+    use super::{AssociatedDevicesPage, TuyaDevice, commands_request};
     use homelumen_core::Command;
 
     // Tuya's own two examples disagree on the DPS code a socket answers to:
@@ -187,5 +209,28 @@ mod tests {
 
         assert!(request.contains("\"code\":\"switch_1\""));
         assert!(request.contains("\"value\":true"));
+    }
+
+    #[test]
+    fn an_associated_devices_page_reads_the_devices_key() {
+        let page: AssociatedDevicesPage = serde_json::from_str(&format!(
+            r#"{{"devices": [{NAMED_SWITCH}], "has_more": true, "last_row_key": "abc"}}"#
+        ))
+        .expect("valid page");
+
+        assert!(page.has_more);
+        assert_eq!(page.last_row_key, "abc");
+        assert_eq!(page.into_devices().len(), 1);
+    }
+
+    #[test]
+    fn an_associated_devices_page_falls_back_to_the_list_key() {
+        let page: AssociatedDevicesPage = serde_json::from_str(&format!(
+            r#"{{"list": [{NAMED_SWITCH}, {NUMBERED_SWITCH}], "has_more": false, "last_row_key": ""}}"#
+        ))
+        .expect("valid page");
+
+        assert!(!page.has_more);
+        assert_eq!(page.into_devices().len(), 2);
     }
 }
