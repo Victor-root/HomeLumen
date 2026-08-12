@@ -18,7 +18,7 @@ use design::typo;
 /// The compact footprint HomeLumen opens at, measured directly off the
 /// window itself: HomeLumen refuses to shrink past this size, while still
 /// resizing larger or maximizing freely through the title bar.
-const COMPACT_SIZE: Size = Size::new(385.0, 573.0);
+const COMPACT_SIZE: Size = Size::new(385.0, 620.0);
 
 /// The window HomeLumen opens.
 fn window() -> window::Settings {
