@@ -32,7 +32,10 @@ before-packaging-command = "cargo build --release"
 formats = ["nsis"]
 resources = ["../../LICENSE"]
 
+# `template` is cargo-packager's own installer.nsi, vendored here with the
+# DPI-awareness lines it does not set on its own; see that file's own header.
 [package.metadata.packager.nsis]
 installer-icon = "../../assets/icon/icon.ico"
 installer-mode = "perMachine"
 languages = ["English", "French"]
+template = "installer.nsi"
