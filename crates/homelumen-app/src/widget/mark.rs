@@ -1,5 +1,9 @@
 //! The HomeLumen mark: a house with its bulb lit, one warm gold gradient
 //! running through both.
+//!
+//! Every coordinate here is measured off the vector artwork HomeLumen ships
+//! with (fractions of its 1254-unit canvas), not eyeballed: see
+//! `crate::icon`, which shares the same numbers for the window icon.
 
 use iced::mouse;
 use iced::widget::canvas::{
@@ -9,15 +13,61 @@ use iced::{
     Color, Element, Length, Point, Rectangle, Renderer, Size, Theme, Vector,
 };
 
-/// The roofline: five points tracing the house from eave to eave, closed
-/// along the floor. Fractions of the mark's own side, not the skin: the
-/// mark reads the same on ink and on paper, so its colours never come from
-/// there either.
-const ROOF: [(f32, f32); 5] =
-    [(0.12, 0.58), (0.50, 0.18), (0.88, 0.58), (0.88, 0.96), (0.12, 0.96)];
+/// The roofline, stroked as one open path rather than closed along the
+/// floor: a wall, the eave tip reaching past it, the peak, and back down
+/// the mirrored side. Each wall ends where its stroke does; the flare
+/// beneath it is a separate shape, see `FOOT_LEFT`/`FOOT_RIGHT`.
+const ROOF: [(f32, f32); 7] = [
+    (0.2583, 0.6802),
+    (0.2583, 0.4705),
+    (0.2104, 0.4322),
+    (0.4959, 0.1974),
+    (0.7814, 0.4322),
+    (0.7336, 0.4705),
+    (0.7336, 0.6802),
+];
+
+/// Width of the roofline stroke.
+const ROOF_STROKE: f32 = 0.0477;
 
 /// The chimney, breaking the right roof slope: top-left corner, size.
-const CHIMNEY: (f32, f32, f32, f32) = (0.64, 0.26, 0.10, 0.20);
+const CHIMNEY: (f32, f32, f32, f32) = (0.6475, 0.2360, 0.0772, 0.1140);
+
+/// Each wall flares into a foot wider than the wall itself, rather than
+/// the stroke just rounding off at its end: seven points tracing the
+/// flare's own edge (it fills a shape, so unlike `ROOF` these are the
+/// boundary, not a centreline the stroke would widen out from).
+const FOOT_LEFT: [(f32, f32); 7] = [
+    (0.2345, 0.6802),
+    (0.3086, 0.7520),
+    (0.3947, 0.7520),
+    (0.4075, 0.7376),
+    (0.3684, 0.6986),
+    (0.3397, 0.6986),
+    (0.2823, 0.6427),
+];
+const FOOT_RIGHT: [(f32, f32); 7] = [
+    (0.7574, 0.6802),
+    (0.6833, 0.7520),
+    (0.5971, 0.7520),
+    (0.5844, 0.7376),
+    (0.6234, 0.6986),
+    (0.6522, 0.6986),
+    (0.7096, 0.6427),
+];
+
+/// The bulb's globe: centre, radius.
+const GLOBE: (f32, f32, f32) = (0.496, 0.489, 0.126);
+
+/// The threaded base below the globe: two bands, narrower than the last,
+/// then a domed tip. Each as (half width, half height), stacked by their
+/// own measured gaps rather than an even split.
+const BAND_1: (f32, f32) = (0.061, 0.0115);
+const BAND_2: (f32, f32) = (0.0575, 0.0115);
+const TIP: (f32, f32) = (0.0375, 0.0205);
+const GLOBE_TO_BAND_1: f32 = 0.016;
+const BAND_GAP: f32 = 0.012;
+const BAND_TO_TIP: f32 = 0.013;
 
 /// The brand mark.
 pub struct Mark;
@@ -44,10 +94,20 @@ impl<Message> canvas::Program<Message> for Mark {
                 .add_stop(1.0, Color::from_rgb(0.929, 0.639, 0.180))
         };
 
+        let polygon = |points: &[(f32, f32)]| {
+            Path::new(|path| {
+                path.move_to(at(points[0].0, points[0].1));
+                for (x, y) in &points[1..] {
+                    path.line_to(at(*x, *y));
+                }
+                path.close();
+            })
+        };
+
         let chimney = Path::rounded_rectangle(
             at(CHIMNEY.0, CHIMNEY.1),
             Size::new(CHIMNEY.2 * side, CHIMNEY.3 * side),
-            (CHIMNEY.2 * side * 0.25).into(),
+            (CHIMNEY.2 * side * 0.134).into(),
         );
         frame.fill(&chimney, gold());
 
@@ -56,55 +116,48 @@ impl<Message> canvas::Program<Message> for Mark {
             for (x, y) in &ROOF[1..] {
                 path.line_to(at(*x, *y));
             }
-            path.close();
         });
 
         frame.stroke(
             &house,
             Stroke {
                 style: Style::Gradient(gold().into()),
-                width: side * 0.06,
+                width: ROOF_STROKE * side,
                 line_cap: canvas::LineCap::Round,
                 line_join: canvas::LineJoin::Round,
                 ..Stroke::default()
             },
         );
 
+        frame.fill(&polygon(&FOOT_LEFT), gold());
+        frame.fill(&polygon(&FOOT_RIGHT), gold());
+
         // The bulb: a globe over a threaded base, the same gradient as the
         // house rather than a glass tone of its own.
-        let glass = at(0.50, 0.58);
-        let radius = side * 0.19;
+        let glass = at(GLOBE.0, GLOBE.1);
+        let radius = GLOBE.2 * side;
 
         frame.fill(&Path::circle(glass, radius), gold());
 
-        let thread_size = Size::new(radius * 1.1, side * 0.04);
-        let thread_gap = side * 0.012;
-        let base_start = glass.y + radius + thread_size.height / 2.0;
-        let band_top = |band: i32| {
-            base_start - thread_size.height / 2.0
-                + (band as f32) * (thread_size.height + thread_gap)
+        let band = |half: (f32, f32), center_y: f32| {
+            Path::rounded_rectangle(
+                Point::new(
+                    glass.x - half.0 * side,
+                    at(0.0, center_y).y - half.1 * side,
+                ),
+                Size::new(half.0 * 2.0 * side, half.1 * 2.0 * side),
+                (half.1 * side).into(),
+            )
         };
 
-        for band in 0..3 {
-            frame.fill(
-                &Path::rounded_rectangle(
-                    Point::new(
-                        glass.x - thread_size.width / 2.0,
-                        band_top(band),
-                    ),
-                    thread_size,
-                    (thread_size.height / 2.0).into(),
-                ),
-                gold(),
-            );
-        }
+        let band_1_y = GLOBE.1 + GLOBE.2 + GLOBE_TO_BAND_1 + BAND_1.1;
+        frame.fill(&band(BAND_1, band_1_y), gold());
 
-        let tip_radius = side * 0.014;
-        let tip_y = band_top(2) + thread_size.height + thread_gap + tip_radius;
-        frame.fill(
-            &Path::circle(Point::new(glass.x, tip_y), tip_radius),
-            gold(),
-        );
+        let band_2_y = band_1_y + BAND_1.1 + BAND_GAP + BAND_2.1;
+        frame.fill(&band(BAND_2, band_2_y), gold());
+
+        let tip_y = band_2_y + BAND_2.1 + BAND_TO_TIP + TIP.1;
+        frame.fill(&band(TIP, tip_y), gold());
 
         vec![frame.into_geometry()]
     }
