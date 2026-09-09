@@ -1,10 +1,11 @@
 //! The window icon, drawn rather than shipped.
 //!
-//! It is the same house-and-bulb mark as the header, rasterised at start-up,
-//! so HomeLumen carries its identity into the taskbar without an image file.
-//! On Windows this is only half the story: see `build.rs` for the other
-//! half, the icon Explorer and the taskbar's own jump list read straight off
-//! the executable rather than off a running window.
+//! It is the same house-and-bulb mark as the header (see
+//! `crate::widget::mark`), rasterised at start-up, so HomeLumen carries its
+//! identity into the taskbar without an image file. On Windows this is only
+//! half the story: see `build.rs` for the other half, the icon Explorer and
+//! the taskbar's own jump list read straight off the executable rather than
+//! off a running window.
 
 use iced::window::icon::{self, Icon};
 
@@ -19,6 +20,15 @@ const ROOF: [(f32, f32); 6] = [
     (0.12, 0.96),
     (0.12, 0.58),
 ];
+
+/// The chimney: top-left corner and size, also shared with the header mark.
+const CHIMNEY: (f32, f32, f32, f32) = (0.64, 0.26, 0.10, 0.20);
+
+/// The gradient every part of the mark shares, sampled by how far down the
+/// whole mark a point sits rather than by its own shape.
+const GOLD_TOP: (f32, f32, f32) = (1.0, 0.910, 0.671);
+const GOLD_BOTTOM: (f32, f32, f32) = (0.929, 0.639, 0.180);
+const GOLD_SPAN: (f32, f32) = (0.16, 0.92);
 
 /// Builds the window icon.
 pub fn window() -> Option<Icon> {
@@ -35,17 +45,22 @@ pub fn pixels(side: u32) -> Vec<u8> {
     let roof: Vec<(f32, f32)> = ROOF.iter().map(|(x, y)| at(*x, *y)).collect();
     let stroke = 6.0 * scale;
 
-    let glass = at(0.50, 0.66);
-    let radius = 22.0 * scale;
+    let chimney = (
+        at(CHIMNEY.0, CHIMNEY.1).0,
+        at(CHIMNEY.0, CHIMNEY.1).1,
+        CHIMNEY.2 * 100.0 * scale,
+        CHIMNEY.3 * 100.0 * scale,
+    );
+    let chimney_round = chimney.2 * 0.25;
 
-    let base_half = (9.0 * scale, 5.0 * scale);
-    let base_center = at(0.50, 0.846);
-    let base_round = 3.0 * scale;
+    let glass = at(0.50, 0.58);
+    let radius = 19.0 * scale;
 
-    let frame_tone = (0.580, 0.529, 0.463);
-    let glass_stroke = (0.804, 0.502, 0.180);
-    let glass_top = (1.0, 0.859, 0.624);
-    let glass_bottom = (0.949, 0.651, 0.247);
+    let thread_half_width = radius * 0.55;
+    let thread_half_height = 2.0 * scale;
+    let thread_gap = 1.2 * scale;
+    let thread_round = thread_half_height;
+    let tip_radius = 1.4 * scale;
 
     let mut out = Vec::with_capacity((side * side * 4) as usize);
 
@@ -53,37 +68,53 @@ pub fn pixels(side: u32) -> Vec<u8> {
         for x in 0..side {
             let px = x as f32 + 0.5;
             let py = y as f32 + 0.5;
+            let tone = gold_at(py / side as f32);
 
             let mut layer = [0.0, 0.0, 0.0, 0.0];
 
-            // The socket, tucked behind the glass.
-            let base_d = rounded_rect_distance(
-                px - base_center.0,
-                py - base_center.1,
-                base_half.0,
-                base_half.1,
-                base_round,
+            // The chimney, behind the roofline.
+            let chimney_d = rounded_rect_distance(
+                px - (chimney.0 + chimney.2 / 2.0),
+                py - (chimney.1 + chimney.3 / 2.0),
+                chimney.2 / 2.0,
+                chimney.3 / 2.0,
+                chimney_round,
             );
-            layer = over(layer, frame_tone, edge(base_d));
+            layer = over(layer, tone, edge(chimney_d));
 
-            // The glass: a vertical gradient standing in for the sphere the
-            // real bulb is lit with, plus the hairline around it.
-            let dist = ((px - glass.0).powi(2) + (py - glass.1).powi(2)).sqrt();
-            let glass_d = dist - radius;
-            let t =
-                ((py - (glass.1 - radius)) / (radius * 2.0)).clamp(0.0, 1.0);
-            let glass_color = lerp(glass_top, glass_bottom, t);
-            layer = over(layer, glass_color, edge(glass_d));
-            layer = over(
-                layer,
-                glass_stroke,
-                edge((dist - radius).abs() - stroke * 0.07),
-            );
-
-            // The roofline, on top: the only shape that has to stay a crisp,
-            // unbroken outline however much the glass beneath it grows.
+            // The roofline, on top of the chimney: the only shape that has
+            // to stay a crisp, unbroken outline however much the glass
+            // beneath it grows.
             let roof_d = polyline_distance(px, py, &roof) - stroke / 2.0;
-            layer = over(layer, frame_tone, edge(roof_d));
+            layer = over(layer, tone, edge(roof_d));
+
+            // The bulb: a globe over a threaded base, tucked inside the
+            // house.
+            let dist = ((px - glass.0).powi(2) + (py - glass.1).powi(2)).sqrt();
+            layer = over(layer, tone, edge(dist - radius));
+
+            let base_start = glass.1 + radius + thread_half_height;
+            let band_center = |band: i32| {
+                base_start
+                    + band as f32 * (2.0 * thread_half_height + thread_gap)
+            };
+
+            for band in 0..3 {
+                let band_d = rounded_rect_distance(
+                    px - glass.0,
+                    py - band_center(band),
+                    thread_half_width,
+                    thread_half_height,
+                    thread_round,
+                );
+                layer = over(layer, tone, edge(band_d));
+            }
+
+            let tip_y =
+                band_center(2) + thread_half_height + thread_gap + tip_radius;
+            let tip_d = ((px - glass.0).powi(2) + (py - tip_y).powi(2)).sqrt()
+                - tip_radius;
+            layer = over(layer, tone, edge(tip_d));
 
             out.extend_from_slice(&[
                 channel(layer[0]),
@@ -95,6 +126,13 @@ pub fn pixels(side: u32) -> Vec<u8> {
     }
 
     out
+}
+
+/// The mark's shared gradient colour at `y_fraction` down the whole icon.
+fn gold_at(y_fraction: f32) -> (f32, f32, f32) {
+    let t = ((y_fraction - GOLD_SPAN.0) / (GOLD_SPAN.1 - GOLD_SPAN.0))
+        .clamp(0.0, 1.0);
+    lerp(GOLD_TOP, GOLD_BOTTOM, t)
 }
 
 /// One pixel of antialiasing on either side of a signed distance.
