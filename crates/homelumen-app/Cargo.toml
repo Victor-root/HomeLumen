@@ -17,7 +17,8 @@ homelumen-core.workspace = true
 homelumen-engine.workspace = true
 homelumen-tuya.workspace = true
 
-iced = { version = "0.14", features = ["advanced", "canvas", "tokio"] }
+iced = { version = "0.14", features = ["advanced", "canvas", "svg", "tokio"] }
+resvg = { version = "0.45", default-features = false }
 sys-locale = "0.3.2"
 
 [build-dependencies]

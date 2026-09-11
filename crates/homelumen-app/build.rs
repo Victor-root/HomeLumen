@@ -5,9 +5,9 @@
 //! enough for the title bar and the taskbar's own icon, but not for
 //! Explorer or the taskbar's right-click jump list: both read the icon
 //! straight off the executable's own resources, before HomeLumen ever
-//! runs. `assets/icon/icon.ico` is a static export of exactly what
-//! `icon::window` draws; if the mark in `src/icon.rs` ever changes,
-//! regenerate it with the same pixels so the two never drift apart.
+//! runs. `assets/icon/icon.ico` is a static export of `assets/icon/logo.svg`,
+//! the same artwork `icon::window` rasterises; if the logo is ever replaced,
+//! export the `.ico` and the `.png` beside it again from the new file.
 //!
 //! Without a manifest saying otherwise, Windows assumes an old,
 //! DPI-unaware program and stretches its whole window as a bitmap on a
