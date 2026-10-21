@@ -123,10 +123,10 @@ fn header<'a>(
             let wordmark: Element<'_, Message> = if available.width
                 < HEADER_BREAKPOINT
             {
-                mark(27.0)
+                mark(40.0)
             } else {
                 row![
-                    mark(27.0),
+                    mark(40.0),
                     column![
                         label("Home", typo::BODY, typo::MEDIUM, skin.ink_soft)
                             .line_height(typo::SNUG_LEADING),
