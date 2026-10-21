@@ -151,6 +151,59 @@ tâches la reprend.
 
 ---
 
+## 🔌 Brancher ses prises Tuya / Smart Life
+
+Tuya ne laisse aucune application tierce se connecter avec le simple
+identifiant Smart Life. Il faut passer par un « projet cloud » gratuit sur le
+site développeur de Tuya, qui fournit deux codes à coller dans HomeLumen. Ça
+se fait une seule fois, compter un quart d'heure.
+
+1. **Les prises dans l'application.** Elles doivent déjà marcher dans Smart
+   Life (ou Tuya Smart), sur un vrai compte, pas un compte invité.
+2. **Le compte développeur.** Créer un compte sur
+   [iot.tuya.com](https://iot.tuya.com). Si le site demande un type de
+   compte, passer cette étape.
+3. **Le projet.** Menu **Cloud**, puis **Create Cloud Project** :
+   - nom au choix ;
+   - *Industry* : **Smart Home**, *Development Method* : **Smart Home** ;
+   - *Data Center* : **Central Europe**. C'est là que vivent les comptes
+     Smart Life ouverts en France, et c'est le seul que HomeLumen interroge.
+4. **Les services.** L'écran suivant propose des services à autoriser :
+   **IoT Core** et **Authorization** doivent être dans la liste. Désactiver
+   le bloqueur de fenêtres surgissantes du navigateur avant de valider,
+   sinon l'abonnement échoue sans aucun message.
+5. **Relier Smart Life.** Dans le projet, onglet **Devices**, puis **Link
+   Tuya App Account** et **Add App Account**. Choisir la liaison
+   automatique et, s'il est proposé, le droit de contrôle (*Controllable*).
+   Un QR code s'affiche : dans Smart Life, onglet **Moi**, icône de scan en
+   haut à droite, puis scanner et confirmer.
+6. **Vérifier.** Les prises doivent maintenant apparaître dans l'onglet
+   **Devices** du projet. Si la liste reste vide, le centre de données ne
+   correspond pas à celui du compte : la région du compte se lit dans Smart
+   Life sous **Moi**, **Paramètres**, **Compte et sécurité**, **Région**.
+7. **Les codes.** Onglet **Overview** du projet : recopier **Access
+   ID/Client ID** et **Access Secret/Client Secret** dans les réglages de
+   HomeLumen, section Smart Life, puis **Enregistrer**. Les prises arrivent
+   dans l'onglet Prises dans la foulée.
+
+> [!IMPORTANT]
+> Le service **IoT Core** gratuit est un essai d'un mois. À son expiration,
+> Tuya refuse les requêtes avec un message du type *« Your subscription to
+> cloud development plan has expired »*. Pour le prolonger : **Cloud**,
+> **Cloud Services**, **IoT Core**, puis **Extend Trial Period**, et remplir
+> le court questionnaire (1, 3 ou 6 mois, gratuit). La validation peut
+> prendre de quelques minutes à un ou deux jours.
+
+En parallèle, HomeLumen essaie aussi de piloter les prises directement sur
+le réseau local, sans passer par les serveurs de Tuya : elle apprend pour
+cela la clé de chaque prise auprès du même projet cloud. Cette route ne vaut
+que pour les prises qui parlent les versions 3.2 et 3.3 du protocole local
+de Tuya ; les plus récentes (3.4 et 3.5) passent uniquement par le cloud.
+Sous Windows, le pare-feu doit laisser passer HomeLumen pour qu'elle entende
+les annonces des prises (ports UDP 6666 et 6667).
+
+---
+
 ## 🧩 Architecture
 
 Quatre crates, du plus général au plus concret.

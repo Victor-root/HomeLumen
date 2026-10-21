@@ -47,9 +47,11 @@ pub(crate) async fn all_devices(
     let mut last_row_key: Option<String> = None;
 
     loop {
+        // Tuya signs the query string with its keys in alphabetical order,
+        // and rejects the call otherwise.
         let query = match &last_row_key {
             Some(key) => format!(
-                "/v1.0/iot-01/associated-users/devices?size=50&last_row_key={key}"
+                "/v1.0/iot-01/associated-users/devices?last_row_key={key}&size=50"
             ),
             None => "/v1.0/iot-01/associated-users/devices?size=50".to_owned(),
         };
