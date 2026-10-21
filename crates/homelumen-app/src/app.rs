@@ -8,6 +8,7 @@ use homelumen_core::{
 use homelumen_engine::{self as engine, Handle, LightSnapshot, Request};
 use iced::{Element, Size, Subscription, Task};
 
+use crate::appearance;
 use crate::design::{Lang, LangPreference, Mode, Preference, Skin};
 use crate::screen;
 
@@ -170,7 +171,7 @@ impl App {
         Subscription::batch([
             Subscription::run(engine::run).map(Message::Engine),
             window_size_events().map(Message::WindowSized),
-            iced::system::theme_changes()
+            appearance::changes()
                 .map(|mode| Message::SystemSkin(system_skin(mode))),
         ])
     }
